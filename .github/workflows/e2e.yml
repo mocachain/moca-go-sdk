@@ -1,0 +1,129 @@
+name: End to End Test
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+
+  pull_request:
+    branches:
+      - master
+      - develop
+
+env:
+  MocaTag: v1.6.0
+  MocaStorageProviderTag: feat-get-recommended-vgf
+  GOPRIVATE: github.com/MocaFoundation
+  GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
+  MYSQL_USER: root
+  MYSQL_PASSWORD: root
+  MYSQL_ROOT_PASSWORD: root
+  MYSQL_IP: 127.0.0.1
+  MYSQL_PORT: 3306
+
+jobs:
+  end-to-end-test:
+    strategy:
+      matrix:
+        go-version: [1.20.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          # In order:
+          # * Module download cache
+          # * Build cache (Linux)
+          # * Build cache (Mac)
+          # * Build cache (Windows)
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            %LocalAppData%\go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Setup GitHub Token
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+
+      # Build Moca
+      - name: Build Moca
+        run: |
+          git clone https://github.com/MocaFoundation/moca.git ../moca
+          cd ../moca
+          git checkout ${{ env.MocaTag }}
+          go install github.com/bufbuild/buf/cmd/buf@v1.28.0
+          make tools
+          make proto-gen
+          make build
+          cd ..
+      # Build Moca-SP
+      - name: Build Moca-SP
+        run: |
+          git clone https://github.com/MocaFoundation/moca-storage-provider.git ../moca-storage-provider
+          cd ../moca-storage-provider
+          git checkout ${{ env.MocaStorageProviderTag }}
+          make install-tools
+          make build
+          cd ../moca-go-sdk
+      # Run MySQL
+      - name: Run MySQL
+        run: |
+          sudo /etc/init.d/mysql start
+          mysql -h ${{ env.MYSQL_IP }} -P ${{ env.MYSQL_PORT }} -u${{ env.MYSQL_USER }} -p${{ env.MYSQL_PASSWORD }} -e 'CREATE DATABASE sp_0; CREATE DATABASE sp_1;CREATE DATABASE sp_2; CREATE DATABASE sp_3;CREATE DATABASE sp_4; CREATE DATABASE sp_5; CREATE DATABASE sp_6;'
+      # Run Moca
+      - name: Run Moca
+        run: |
+          cd ../moca
+          bash ./deployment/localup/localup.sh all 1 8
+          bash ./deployment/localup/localup.sh export_sps 1 8 > sp.json
+          cat sp.json
+          cd ../moca-go-sdk
+      # Run Moca-SP
+      - name: Run Moca-SPs
+        run: |
+          cd ../moca-storage-provider
+          bash ./deployment/localup/localup.sh --generate $GITHUB_WORKSPACE/../moca/sp.json ${{ env.MYSQL_USER }} ${{ env.MYSQL_PASSWORD }} ${{ env.MYSQL_IP }}:${{ env.MYSQL_PORT }}
+          bash ./deployment/localup/localup.sh --reset
+          bash ./deployment/localup/localup.sh --start
+          sleep 60
+          ./deployment/localup/local_env/sp0/gnfd-sp0 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp0/config.toml
+          ./deployment/localup/local_env/sp1/gnfd-sp1 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp1/config.toml
+          ./deployment/localup/local_env/sp2/gnfd-sp2 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp2/config.toml
+          ./deployment/localup/local_env/sp3/gnfd-sp3 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp3/config.toml
+          ./deployment/localup/local_env/sp4/gnfd-sp4 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp4/config.toml
+          ./deployment/localup/local_env/sp5/gnfd-sp5 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp5/config.toml
+          ./deployment/localup/local_env/sp6/gnfd-sp6 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp6/config.toml
+          ./deployment/localup/local_env/sp7/gnfd-sp7 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp7/config.toml
+          ps -ef | grep gnfd-sp | wc -l
+          tail -n 1000 deployment/localup/local_env/sp0/gnfd-sp.log
+          cd ../moca-go-sdk
+      # Run E2E Test
+      - name: start e2e
+        run: |
+          set +e
+          make e2e_test
+          exit_status_command=$?
+          if [ $exit_status_command -eq 0 ]; then
+            echo "make e2e_test successful."
+          else
+            cd ../moca-storage-provider
+            cat ./deployment/localup/local_env/sp0/log.txt
+            cat ./deployment/localup/local_env/sp1/log.txt
+            cat ./deployment/localup/local_env/sp2/log.txt
+            cat ./deployment/localup/local_env/sp3/log.txt
+            cat ./deployment/localup/local_env/sp4/log.txt
+            cat ./deployment/localup/local_env/sp5/log.txt
+            cat ./deployment/localup/local_env/sp6/log.txt
+            cat ./deployment/localup/local_env/sp7/log.txt
+            exit $exit_status_command
+          fi
+          cd ..
