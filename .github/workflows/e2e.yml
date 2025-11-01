@@ -14,7 +14,7 @@ on:
 env:
   MocaTag: v1.6.0
   MocaStorageProviderTag: feat-get-recommended-vgf
-  GOPRIVATE: github.com/MocaFoundation
+  GOPRIVATE: github.com/mocachain
   GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
   MYSQL_USER: root
   MYSQL_PASSWORD: root
@@ -57,7 +57,7 @@ jobs:
       # Build Moca
       - name: Build Moca
         run: |
-          git clone https://github.com/MocaFoundation/moca.git ../moca
+          git clone https://github.com/mocachain/moca.git ../moca
           cd ../moca
           git checkout ${{ env.MocaTag }}
           go install github.com/bufbuild/buf/cmd/buf@v1.28.0
@@ -68,7 +68,7 @@ jobs:
       # Build Moca-SP
       - name: Build Moca-SP
         run: |
-          git clone https://github.com/MocaFoundation/moca-storage-provider.git ../moca-storage-provider
+          git clone https://github.com/mocachain/moca-storage-provider.git ../moca-storage-provider
           cd ../moca-storage-provider
           git checkout ${{ env.MocaStorageProviderTag }}
           make install-tools

@@ -32,20 +32,20 @@ go mod init hellomoca
 ### Add SDK Dependencies
 
 ```sh
-go get github.com/MocaFoundation/moca-go-sdk
+go get github.com/mocachain/moca-go-sdk
 ```
 
 replace dependencies
 
 ```go.mod
-cosmossdk.io/api => github.com/MocaFoundation/moca-cosmos-sdk/api v0.0.0-20250908083143-e28da82c630a
-cosmossdk.io/math => github.com/MocaFoundation/moca-cosmos-sdk/math v0.0.0-20250908083143-e28da82c630a
-cosmossdk.io/simapp => github.com/MocaFoundation/moca-cosmos-sdk/simapp v0.0.0-20250908083143-e28da82c630a
-github.com/cometbft/cometbft => github.com/MocaFoundation/moca-cometbft v1.0.0-alpha.1
-github.com/cometbft/cometbft-db => github.com/MocaFoundation/moca-cometbft-db v1.0.0-alpha.1
+cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v0.0.0-20250908083143-e28da82c630a
+cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v0.0.0-20250908083143-e28da82c630a
+cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v0.0.0-20250908083143-e28da82c630a
+github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.0.0-alpha.1
+github.com/cometbft/cometbft-db => github.com/mocachain/moca-cometbft-db v1.0.0-alpha.1
 github.com/consensys/gnark-crypto => github.com/consensys/gnark-crypto v0.7.0
-github.com/cosmos/cosmos-sdk => github.com/MocaFoundation/moca-cosmos-sdk v1.0.0-alpha.1
-github.com/cosmos/iavl => github.com/MocaFoundation/moca-iavl v1.0.0-alpha.1
+github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.0.0-alpha.1
+github.com/cosmos/iavl => github.com/mocachain/moca-iavl v1.0.0-alpha.1
 ```
 
 ### Initialize Client
@@ -67,8 +67,8 @@ import (
  "context"
  "log"
 
- "github.com/MocaFoundation/moca-go-sdk/client"
- "github.com/MocaFoundation/moca-go-sdk/types"
+ "github.com/mocachain/moca-go-sdk/client"
+ "github.com/mocachain/moca-go-sdk/types"
 )
 
 func main() {
@@ -127,11 +127,11 @@ Please note that the "permission.go" example must be run after "storage.go" beca
 
 ## Reference
 
-- [Moca](https://github.com/MocaFoundation/moca): The Golang implementation of the Moca Blockchain.
-- [Moca-Contracts](https://github.com/MocaFoundation/moca-contracts): the cross chain contract for Moca that deployed on ethereum-compatible network.
-- [Moca-Storage-Provider](https://github.com/MocaFoundation/moca-storage-provider): the storage service infrastructures provided by either organizations or individuals.
-- [moca-relayer](https://github.com/MocaFoundation/moca-relayer): the service that relay cross chain package to both chains.
-- [moca-cmd](https://github.com/MocaFoundation/moca-cmd): the most powerful command line to interact with Moca system.
+- [Moca](https://github.com/mocachain/moca): The Golang implementation of the Moca Blockchain.
+- [Moca-Contracts](https://github.com/mocachain/moca-contracts): the cross chain contract for Moca that deployed on ethereum-compatible network.
+- [Moca-Storage-Provider](https://github.com/mocachain/moca-storage-provider): the storage service infrastructures provided by either organizations or individuals.
+- [moca-relayer](https://github.com/mocachain/moca-relayer): the service that relay cross chain package to both chains.
+- [moca-cmd](https://github.com/mocachain/moca-cmd): the most powerful command line to interact with Moca system.
 - [Awesome Cosmos](https://github.com/cosmos/awesome-cosmos): Collection of Cosmos related resources which also fits moca.
 
 ## Fork Information
