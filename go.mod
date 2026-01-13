@@ -9,13 +9,13 @@ require (
 	cosmossdk.io/math v1.4.0
 	cosmossdk.io/x/feegrant v0.1.1
 	github.com/0xPolygon/polygon-edge v1.3.3
-	github.com/mocachain/moca-common/go v0.0.0-00010101000000-000000000000
 	github.com/cometbft/cometbft v0.38.15
 	github.com/consensys/gnark-crypto v0.14.0
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/evmos/evmos/v12 v12.1.6
+	github.com/mocachain/moca-common/go v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.32.0
@@ -207,35 +207,35 @@ require (
 )
 
 replace (
-	cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v0.0.0-20250908083143-e28da82c630a
-	cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v0.0.0-20250908083143-e28da82c630a
-	cosmossdk.io/x/feegrant => github.com/mocachain/moca-cosmos-sdk/x/feegrant v0.0.0-20250908083143-e28da82c630a
+	cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v1.1.0
+	cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v1.1.0
+	cosmossdk.io/x/feegrant => github.com/mocachain/moca-cosmos-sdk/x/feegrant v1.1.0
 	github.com/0xPolygon/polygon-edge v1.3.3 => github.com/mocachain/polygon-edge v1.3.3-moca.1
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.0.0-audit-fix
-	github.com/cometbft/cometbft-db => github.com/mocachain/moca-cometbft-db v1.0.0-alpha.1
+	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.1.0
+	github.com/cometbft/cometbft-db => github.com/mocachain/moca-cometbft-db v1.1.0
 	github.com/confio/ics23/go => github.com/cosmos/cosmos-sdk/ics23/go v0.8.0
 	github.com/consensys/gnark-crypto => github.com/consensys/gnark-crypto v0.7.0
-	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.0.0-audit-fix
-	github.com/cosmos/iavl => github.com/mocachain/moca-iavl v1.0.0-alpha.1
-	github.com/cosmos/ibc-go/v10 => github.com/mocachain/moca-ibc-go/v10 v10.0.0-alpha.1
-	github.com/ethereum/go-ethereum => github.com/mocachain/go-ethereum v1.10.27-0.20250415055204-fbf69808eb10
-	github.com/evmos/evmos/v12 => github.com/mocachain/moca/v12 v12.0.0-alpha.1
+	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.1.0
+	github.com/cosmos/iavl => github.com/mocachain/moca-iavl v1.1.0
+	github.com/cosmos/ibc-go/v10 => github.com/mocachain/moca-ibc-go/v10 v10.1.0
+	github.com/ethereum/go-ethereum => github.com/mocachain/go-ethereum v1.10.27-moca.1
+	github.com/evmos/evmos/v12 => github.com/mocachain/moca/v12 v12.1.0
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/wercker/journalhook => github.com/wercker/journalhook v0.0.0-20230927020745-64542ffa4117
 )
 
-replace github.com/mocachain/moca-cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.0.0-audit-fix
+replace github.com/mocachain/moca-cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.1.0
 
-replace github.com/mocachain/moca/v12 => github.com/mocachain/moca/v12 v12.0.0-audit-fix
+replace github.com/mocachain/moca/v12 => github.com/mocachain/moca/v12 v12.1.0
 
-replace github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v0.0.0-20251204064034-1355ed927cce
+replace github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.1.0
 
 replace github.com/btcsuite/btcd/btcec/v2 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
 
-replace cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.0.0-audit-fix
+replace cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.1.0
 
-replace cosmossdk.io/store/types => github.com/mocachain/moca-cosmos-sdk/store/types v1.0.0-audit-fix
+replace cosmossdk.io/store/types => github.com/mocachain/moca-cosmos-sdk/store/types v1.1.0
 
-replace cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.0.0-audit-fix
+replace cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.1.0
