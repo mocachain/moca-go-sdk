@@ -23,8 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
+	"github.com/MocaFoundation/moca-go-sdk/pkg/utils"
+	"github.com/MocaFoundation/moca-go-sdk/types"
 
 	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
 	gnfdsdk "github.com/evmos/evmos/v12/sdk/types"
@@ -172,32 +172,47 @@ func (c *Client) CreateBucket(ctx context.Context, bucketName string, primaryAdd
 		return "", err
 	}
 
-	accAddress, err := sdk.AccAddressFromHexUnsafe(primaryAddr)
-	if err != nil {
-		return "", err
-	}
-
-	sp, err := c.GetStorageProviderInfo(ctx, accAddress)
-	if err != nil {
-		return "", err
-	}
-
-	familyID, err := c.GetRecommendedVirtualGroupFamilyIDBySPID(ctx, sp.Id)
-	if err != nil {
-		log.Error().Msg(fmt.Sprintf("failed to query sp vgf:  %s", err.Error()))
-		var signedMsg *storageTypes.MsgCreateBucket
-		signedMsg, err = c.GetCreateBucketApproval(ctx, createBucketMsg)
-		if err != nil {
-			return "", err
-		}
-		familyID = signedMsg.PrimarySpApproval.GlobalVirtualGroupFamilyId
-	}
-
-	createBucketMsg.PrimarySpApproval.GlobalVirtualGroupFamilyId = familyID
 	createBucketMsg.PaymentAddress = c.MustGetDefaultAccount().GetAddress().String()
 	if opts.PaymentAddress != "" {
 		createBucketMsg.PaymentAddress = opts.PaymentAddress
 	}
+
+	signedMsg, err := c.GetCreateBucketApproval(ctx, createBucketMsg)
+	if err != nil {
+		return "", err
+	}
+	if signedMsg == nil || signedMsg.PrimarySpApproval == nil ||
+		signedMsg.PrimarySpApproval.ExpiredHeight == 0 ||
+		signedMsg.PrimarySpApproval.GlobalVirtualGroupFamilyId == 0 ||
+		len(signedMsg.PrimarySpApproval.Sig) == 0 {
+		return "", errors.New("invalid create bucket approval from storage provider")
+	}
+	if err := signedMsg.ValidateBasic(); err != nil {
+		return "", fmt.Errorf("invalid create bucket approval message: %w", err)
+	}
+
+	equalsAddr := func(lhs, rhs string) bool {
+		if lhs == "" && rhs == "" {
+			return true
+		}
+		l, lErr := sdk.AccAddressFromHexUnsafe(lhs)
+		r, rErr := sdk.AccAddressFromHexUnsafe(rhs)
+		if lErr != nil || rErr != nil {
+			return strings.EqualFold(lhs, rhs)
+		}
+		return l.Equals(r)
+	}
+
+	if signedMsg.Creator != createBucketMsg.Creator ||
+		signedMsg.BucketName != createBucketMsg.BucketName ||
+		signedMsg.Visibility != createBucketMsg.Visibility ||
+		!equalsAddr(signedMsg.PaymentAddress, createBucketMsg.PaymentAddress) ||
+		!equalsAddr(signedMsg.PrimarySpAddress, createBucketMsg.PrimarySpAddress) ||
+		signedMsg.ChargedReadQuota != createBucketMsg.ChargedReadQuota {
+		return "", errors.New("create bucket approval message mismatch")
+	}
+
+	createBucketMsg = signedMsg
 
 	// set the default txn broadcast mode as block mode
 	if opts.TxOpts == nil {

@@ -24,8 +24,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/blake2b"
 
-	httplib "github.com/mocachain/moca-common/go/http"
-	"github.com/mocachain/moca-go-sdk/types"
+	httplib "github.com/MocaFoundation/moca-common/go/http"
+	"github.com/MocaFoundation/moca-go-sdk/types"
 )
 
 // IAuthClient - Client APIs for register Moca off chain auth keys and make signatures.
@@ -200,11 +200,8 @@ func (c *Client) RegisterEDDSAPublicKey(spAddress string, spEndpoint string) (st
 // Here we also provide an SDK method to implement this process, because sometimes you might want to test if a given SP provides correct EdDSA authentication or not.
 // It also helps if you want implement it on a non-browser environment.
 //
-// - spEndpoint: The sp endpoint, to which this API will register client's EdDSA public key. It can be found via https://docs.moca.network/ .
+// - spEndpoint: The sp endpoint, to which this API will register client's EdDSA public key. It can be found via https://zk.me/moca-docs/docs/moca-api/storage-providers .
 //
-// - ret1: The register result when invoking SP UpdateUserPublicKey API.
-//
-// - ret2: Return error when registering failed, otherwise return nil.
 func (c *Client) RegisterEDDSAPublicKeyV2(spEndpoint string) (string, error) {
 	appDomain := c.offChainAuthOptionV2.Domain
 	eddsaSeed := c.offChainAuthOptionV2.Seed

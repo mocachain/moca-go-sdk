@@ -21,10 +21,11 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/evmos/evmos/v12/sdk/types"
 	"github.com/evmos/evmos/v12/x/evm/precompiles/storage"
 	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
-	gosdktypes "github.com/mocachain/moca-go-sdk/types"
+	gosdktypes "github.com/MocaFoundation/moca-go-sdk/types"
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -318,6 +319,11 @@ func (c *Client) waitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultT
 			}
 			continue
 		}
+
+		if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+			return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
+		}
+
 		h, _ := hex.DecodeString(hash)
 		return &ctypes.ResultTx{
 			Hash:   h,
