@@ -18,12 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 	gnfdsdk "github.com/evmos/evmos/v12/sdk/types"
 	mocadTypes "github.com/evmos/evmos/v12/types"
 	permTypes "github.com/evmos/evmos/v12/x/permission/types"
 	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IGroupClient interface defines functions related to Group.
