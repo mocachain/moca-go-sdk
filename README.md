@@ -38,14 +38,14 @@ go get github.com/mocachain/moca-go-sdk
 replace dependencies
 
 ```go.mod
-cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v0.0.0-20250908083143-e28da82c630a
-cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v0.0.0-20250908083143-e28da82c630a
-cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v0.0.0-20250908083143-e28da82c630a
-github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.0.0-alpha.1
-github.com/cometbft/cometbft-db => github.com/mocachain/moca-cometbft-db v1.0.0-alpha.1
+cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v0.0.0-20250509020743-d054d4c0ecd6
+cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v0.0.0-20250509020743-d054d4c0ecd6
+cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v0.0.0-20250509020743-d054d4c0ecd6
+github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.3.0-moca.4
+github.com/cometbft/cometbft-db => github.com/mocachain/moca-cometbft-db v0.8.1-alpha.1
 github.com/consensys/gnark-crypto => github.com/consensys/gnark-crypto v0.7.0
-github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.0.0-alpha.1
-github.com/cosmos/iavl => github.com/mocachain/moca-iavl v1.0.0-alpha.1
+github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v0.2.1-alpha.2
+github.com/cosmos/iavl => github.com/mocachain/moca-iavl v0.20.1
 ```
 
 ### Initialize Client

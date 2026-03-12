@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/xml"
 
+	sdkmath "cosmossdk.io/math"
 	storageType "github.com/evmos/evmos/v12/x/storage/types"
 )
 
@@ -160,6 +161,60 @@ type GroupMembers struct {
 	AccountID string `xml:"AccountId"`
 	// ExpirationTime is the user expiration time for this group
 	ExpirationTime string `xml:"ExpirationTime"`
+}
+
+// GroupInfoXML is a helper struct for unmarshaling GroupInfo from XML
+type GroupInfoXML struct {
+	Owner      string `xml:"owner"`
+	GroupName  string `xml:"group_name"`
+	SourceType string `xml:"source_type"`
+	Id         string `xml:"id"`
+	Extra      string `xml:"extra"`
+}
+
+// UnmarshalXML custom unmarshaler for GroupMembers to properly parse the group ID from XML
+func (g *GroupMembers) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	type Alias GroupMembers
+	aux := &struct {
+		*Alias
+		GroupXML *GroupInfoXML `xml:"Group"`
+	}{
+		Alias: (*Alias)(g),
+	}
+
+	if err := d.DecodeElement(aux, &start); err != nil {
+		return err
+	}
+
+	// If we have GroupXML data, convert it to proper GroupInfo
+	if aux.GroupXML != nil && g.Group == nil {
+		g.Group = &storageType.GroupInfo{
+			Owner:     aux.GroupXML.Owner,
+			GroupName: aux.GroupXML.GroupName,
+			Extra:     aux.GroupXML.Extra,
+		}
+		// Parse the ID string to Uint
+		if aux.GroupXML.Id != "" {
+			idUint, ok := sdkmath.NewIntFromString(aux.GroupXML.Id)
+			if ok {
+				g.Group.Id = sdkmath.NewUintFromBigInt(idUint.BigInt())
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetGroupID safely extracts the group ID from GroupInfo
+// Returns empty string if Group or Id is nil
+func (g *GroupMembers) GetGroupID() string {
+	if g.Group == nil {
+		return ""
+	}
+	if g.Group.Id.BigInt() == nil {
+		return ""
+	}
+	return g.Group.Id.String()
 }
 
 // ObjectMeta is the structure for metadata service user object
