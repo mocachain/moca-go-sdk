@@ -13,7 +13,7 @@ require (
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/evmos/evmos/v12 v12.1.6
-	github.com/mocachain/moca-common/go v1.1.1-0.20260313091535-138f9a39c7b8
+	github.com/mocachain/moca-common/go v1.2.0-rc1
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.40.0
@@ -227,9 +227,9 @@ replace (
 	github.com/cosmos/iavl => github.com/mocachain/moca-iavl v1.1.1-0.20260310045324-fcbc580b8ebb
 	github.com/cosmos/ibc-go/v10 => github.com/mocachain/moca-ibc-go/v10 v10.1.1-0.20260311142638-18cd54b7cbcf
 	github.com/ethereum/go-ethereum => github.com/mocachain/go-ethereum v1.10.27-moca.2
-	github.com/evmos/evmos/v12 => github.com/mocachain/moca/v12 v12.2.0-rc0.0.20260313092850-f3cd950eb26b
+	github.com/evmos/evmos/v12 => github.com/mocachain/moca/v12 v12.2.0-rc1
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.1.1-0.20260313091535-138f9a39c7b8
+	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.2.0-rc1
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/wercker/journalhook => github.com/wercker/journalhook v0.0.0-20230927020745-64542ffa4117
 )
