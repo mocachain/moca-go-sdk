@@ -220,16 +220,16 @@ replace (
 	cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v0.0.0-20260311142350-111a846828cc
 	github.com/0xPolygon/polygon-edge => github.com/mocachain/polygon-edge v1.3.3-moca.1
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.1.1-0.20260310132047-7d6dca6a98c4
+	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.2.0-rc0.0.20260316054119-f85713e241f4
 	github.com/confio/ics23/go => github.com/cosmos/cosmos-sdk/ics23/go v0.8.0
 	github.com/consensys/gnark-crypto => github.com/consensys/gnark-crypto v0.7.0
-	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.1.1-0.20260311142350-111a846828cc
-	github.com/cosmos/iavl => github.com/mocachain/moca-iavl v1.1.1-0.20260310045324-fcbc580b8ebb
-	github.com/cosmos/ibc-go/v10 => github.com/mocachain/moca-ibc-go/v10 v10.1.1-0.20260311142638-18cd54b7cbcf
-	github.com/ethereum/go-ethereum => github.com/mocachain/go-ethereum v1.10.27-moca.2
-	github.com/evmos/evmos/v12 => github.com/mocachain/moca/v12 v12.2.0-rc1
+	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.2.0-rc0.0.20260316054236-66c005431435
+	github.com/cosmos/iavl => github.com/mocachain/moca-iavl v0.0.0-20260312035901-82a95b279bb3
+	github.com/cosmos/ibc-go/v10 => github.com/mocachain/moca-ibc-go/v10 v10.2.0-rc0.0.20260317055315-676db00cdb55
+	github.com/ethereum/go-ethereum => github.com/mocachain/go-ethereum v0.0.0-20260313075730-7c259505c9df
+	github.com/evmos/evmos/v12 => github.com/mocachain/moca/v12 v12.2.0-rc4.0.20260317050639-053b0bc0f0de
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.2.0-rc1
+	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v0.0.0-20260316054430-3437182df35a
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/wercker/journalhook => github.com/wercker/journalhook v0.0.0-20230927020745-64542ffa4117
 )
