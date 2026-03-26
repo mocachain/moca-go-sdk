@@ -2,11 +2,11 @@ name: Lint
 on:
   push:
     branches:
-      - master
+      - main
       - develop
   pull_request:
     branches:
-      - master
+      - main
       - develop
 permissions:
   contents: read
@@ -24,15 +24,15 @@ jobs:
       GOPRIVATE: github.com/mocachain
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - run: export GOPRIVATE="github.com/mocachain/*"
       - run: git config --global url."https://${{ secrets.GH_TOKEN }}@github.com".insteadOf "https://github.com"
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           # In order:
           # * Module download cache
