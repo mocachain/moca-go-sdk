@@ -3,11 +3,11 @@ name: gosec
 on:
   push:
     branches:
-      - master
+      - main
       - develop
   pull_request:
     branches:
-      - master
+      - main
       - develop
 jobs:
   gosec:
@@ -21,13 +21,13 @@ jobs:
       GOPRIVATE: github.com/mocachain
       GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup GitHub Token
         run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           # In order:
           # * Module download cache
