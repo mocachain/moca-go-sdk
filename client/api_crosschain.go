@@ -203,16 +203,7 @@ func (c *Client) GetCrossChainPackage(ctx context.Context, destChainId sdk.Chain
 // - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorGroup(ctx context.Context, destChainId sdk.ChainID, groupId math.Uint, groupName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
 	msgMirrorGroup := storagetypes.NewMsgMirrorGroup(c.MustGetDefaultAccount().GetAddress(), destChainId, groupId, groupName)
-	// return c.sendMirrorGroupTx(ctx, msgMirrorGroup, txOption)
 	return c.sendMirrorGroupEvmTx(ctx, msgMirrorGroup)
-}
-
-func (c *Client) sendMirrorGroupTx(ctx context.Context, msg *storagetypes.MsgMirrorGroup, opts gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &opts)
-	if err != nil {
-		return nil, err
-	}
-	return txResp.TxResponse, nil
 }
 
 func (c *Client) sendMirrorGroupEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorGroup) (*sdk.TxResponse, error) {
@@ -265,22 +256,6 @@ func (c *Client) sendMirrorBucketTx(ctx context.Context, msg *storagetypes.MsgMi
 	return txResp.TxResponse, nil
 }
 
-func (c *Client) sendMirrorBucketEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorBucket) (*sdk.TxResponse, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return nil, err
-	}
-	txRsp, err := session.MirrorBucket(
-		msg.Id.BigInt(),
-		msg.BucketName,
-		msg.DestChainId,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return toSDKTxResponse(txRsp), nil
-}
-
 // MirrorObject - Mirror the object to BSC as an NFT
 //
 // - ctx: Context variables for the current API call.
@@ -300,16 +275,7 @@ func (c *Client) sendMirrorBucketEvmTx(ctx context.Context, msg *storagetypes.Ms
 // - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorObject(ctx context.Context, destChainId sdk.ChainID, objectId math.Uint, bucketName, objectName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
 	msgMirrorObject := storagetypes.NewMsgMirrorObject(c.MustGetDefaultAccount().GetAddress(), destChainId, objectId, bucketName, objectName)
-	// return c.sendMirrorObjectTx(ctx, msgMirrorObject, txOption)
 	return c.sendMirrorObjectEvmTx(ctx, msgMirrorObject)
-}
-
-func (c *Client) sendMirrorObjectTx(ctx context.Context, msg *storagetypes.MsgMirrorObject, opts gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &opts)
-	if err != nil {
-		return nil, err
-	}
-	return txResp.TxResponse, nil
 }
 
 func (c *Client) sendMirrorObjectEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorObject) (*sdk.TxResponse, error) {

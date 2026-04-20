@@ -120,22 +120,7 @@ func (c *Client) GetAccount(ctx context.Context, address string) (authTypes.Acco
 //
 // - ret2: Return error when created failed, otherwise return nil.
 func (c *Client) CreatePaymentAccount(ctx context.Context, address string, txOption gnfdSdkTypes.TxOption) (string, error) {
-	// return c.sendCreatePaymentAccountTxn(ctx, address, &txOption)
 	return c.sendCreatePaymentAccountEvmTxn(ctx)
-}
-
-func (c *Client) sendCreatePaymentAccountTxn(ctx context.Context, address string, txOpts *gnfdSdkTypes.TxOption) (string, error) {
-	accAddress, err := sdk.AccAddressFromHexUnsafe(address)
-	if err != nil {
-		return "", err
-	}
-	msgCreatePaymentAccount := paymentTypes.NewMsgCreatePaymentAccount(accAddress.String())
-	resp, err := c.BroadcastTx(ctx, []sdk.Msg{msgCreatePaymentAccount}, txOpts)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.TxResponse.TxHash, err
 }
 
 func (c *Client) sendCreatePaymentAccountEvmTxn(ctx context.Context) (string, error) {
@@ -296,21 +281,7 @@ func (c *Client) GetPaymentAccountsByOwner(ctx context.Context, owner string) ([
 //
 // - ret2: Return error if transferred failed, otherwise return nil.
 func (c *Client) Transfer(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (string, error) {
-	// return c.sendTransferTx(ctx, toAddr, amount, txOption)
 	return c.sendTransferEvmTx(ctx, toAddress, amount)
-}
-
-func (c *Client) sendTransferTx(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (string, error) {
-	toAddr, err := sdk.AccAddressFromHexUnsafe(toAddress)
-	if err != nil {
-		return "", err
-	}
-	msgSend := bankTypes.NewMsgSend(c.MustGetDefaultAccount().GetAddress(), toAddr, sdk.Coins{sdk.Coin{Denom: gnfdSdkTypes.Denom, Amount: amount}})
-	tx, err := c.BroadcastTx(ctx, []sdk.Msg{msgSend}, &txOption)
-	if err != nil {
-		return "", err
-	}
-	return tx.TxResponse.TxHash, nil
 }
 
 func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.Int) (string, error) {

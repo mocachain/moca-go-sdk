@@ -78,27 +78,7 @@ func (c *Client) CreateGroup(ctx context.Context, groupName string, opt types.Cr
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opt.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-
-	// return c.sendCreateGroupTx(ctx, createGroupMsg, opt)
 	return c.sendCreateGroupEvmTx(ctx, createGroupMsg, opt)
-}
-
-func (c *Client) sendCreateGroupTx(ctx context.Context, msg *storageTypes.MsgCreateGroup, opt types.CreateGroupOptions) (string, error) {
-	msgs := []sdk.Msg{msg}
-
-	if opt.Tags != nil {
-		// Set tag
-		grn := mocadTypes.NewGroupGRN(c.MustGetDefaultAccount().GetAddress(), msg.GroupName)
-		msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), grn.String(), opt.Tags)
-		msgs = append(msgs, msgSetTag)
-	}
-	resp, err := c.BroadcastTx(ctx, msgs, opt.TxOpts)
-	if err != nil {
-		return "", err
-	}
-	txnHash := resp.TxResponse.TxHash
-
-	return txnHash, nil
 }
 
 func (c *Client) sendCreateGroupEvmTx(ctx context.Context, msg *storageTypes.MsgCreateGroup, opt types.CreateGroupOptions) (string, error) {
@@ -139,10 +119,6 @@ func (c *Client) sendCreateGroupEvmTx(ctx context.Context, msg *storageTypes.Msg
 func (c *Client) DeleteGroup(ctx context.Context, groupName string, opt types.DeleteGroupOption) (string, error) {
 	deleteGroupMsg := storageTypes.NewMsgDeleteGroup(c.MustGetDefaultAccount().GetAddress(), groupName)
 	return c.sendDeleteGroupEvmTx(ctx, deleteGroupMsg, opt)
-}
-
-func (c *Client) sendDeleteGroupTx(ctx context.Context, msg *storageTypes.MsgDeleteGroup, opt types.DeleteGroupOption) (string, error) {
-	return c.sendTxn(ctx, msg, opt.TxOpts)
 }
 
 func (c *Client) sendDeleteGroupEvmTx(ctx context.Context, msg *storageTypes.MsgDeleteGroup, opt types.DeleteGroupOption) (string, error) {
@@ -227,10 +203,6 @@ func (c *Client) UpdateGroupMember(ctx context.Context, groupName string, groupO
 	updateGroupMsg := storageTypes.NewMsgUpdateGroupMember(c.MustGetDefaultAccount().GetAddress(), groupOwner, groupName, addMembers, removeMembers)
 
 	return c.sendUpdateGroupMemberEvmTx(ctx, updateGroupMsg, opts)
-}
-
-func (c *Client) sendUpdateGroupMemberTx(ctx context.Context, msg *storageTypes.MsgUpdateGroupMember, opt types.UpdateGroupMemberOption) (string, error) {
-	return c.sendTxn(ctx, msg, opt.TxOpts)
 }
 
 func (c *Client) sendUpdateGroupMemberEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateGroupMember, opt types.UpdateGroupMemberOption) (string, error) {
@@ -359,8 +331,6 @@ func (c *Client) PutGroupPolicy(ctx context.Context, groupName string, principal
 
 	putPolicyMsg := storageTypes.NewMsgPutPolicy(sender, resource.String(),
 		permTypes.NewPrincipalWithAccount(principal), statements, opt.PolicyExpireTime)
-
-	// return c.sendPutPolicyTxn(ctx, putPolicyMsg, opt.TxOpts)
 	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg)
 }
 
@@ -444,7 +414,6 @@ func (c *Client) DeleteGroupPolicy(ctx context.Context, groupName string, princi
 	principal := permTypes.NewPrincipalWithAccount(addr)
 
 	delPolicyMsg := storageTypes.NewMsgDeletePolicy(c.MustGetDefaultAccount().GetAddress(), resource, principal)
-	// return c.sendDelPolicyTxn(ctx, c.MustGetDefaultAccount().GetAddress(), delPolicyMsg, opt.TxOpts)
 	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg)
 }
 

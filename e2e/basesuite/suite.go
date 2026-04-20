@@ -17,10 +17,18 @@ import (
 )
 
 var (
-	Endpoint    = "http://localhost:26750"
-	EVMEndpoint = "http://localhost:8545"
-	ChainID     = "moca_1000000-121"
+	Endpoint    = envOrDefault("MOCA_E2E_ENDPOINT", "http://localhost:26657")
+	EVMEndpoint = envOrDefault("MOCA_E2E_EVM_ENDPOINT", "http://localhost:8545")
+	ChainID     = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
+	LocalupDir  = envOrDefault("MOCA_E2E_LOCALUP_DIR", "../../moca/deployment/localup/.local")
 )
+
+func envOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 func ParseMnemonicFromFile(fileName string) string {
 	fileName = filepath.Clean(fileName)
@@ -56,11 +64,11 @@ type BaseSuite struct {
 
 // ParseValidatorMnemonic read the validator mnemonic from file
 func ParseValidatorMnemonic(i int) string {
-	return ParseMnemonicFromFile(fmt.Sprintf("../../moca/deployment/localup/.local/validator%d/info", i))
+	return ParseMnemonicFromFile(filepath.Join(LocalupDir, fmt.Sprintf("validator%d/info", i)))
 }
 
 func (s *BaseSuite) NewChallengeClient() {
-	mnemonic := ParseMnemonicFromFile(fmt.Sprintf("../../moca/deployment/localup/.local/challenger%d/challenger_info", 0))
+	mnemonic := ParseMnemonicFromFile(filepath.Join(LocalupDir, "challenger0/challenger_info"))
 	challengeAcc, err := types.NewAccountFromMnemonic("challenge_account", mnemonic)
 	s.Require().NoError(err)
 	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)

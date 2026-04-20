@@ -158,38 +158,7 @@ func (c *Client) CreateObject(ctx context.Context, bucketName, objectName string
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	// return c.sendCreateObjectTxs(ctx, createObjectMsg, opts)
 	return c.sendCreateObjectEvmTxs(ctx, createObjectMsg, opts)
-}
-
-func (c *Client) sendCreateObjectTxs(ctx context.Context, msg *storageTypes.MsgCreateObject, opts types.CreateObjectOptions) (string, error) {
-	msgs := []sdk.Msg{msg}
-
-	if opts.Tags != nil {
-		// Set tag
-		grn := mocadTypes.NewObjectGRN(msg.BucketName, msg.ObjectName)
-		msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), grn.String(), opts.Tags)
-		msgs = append(msgs, msgSetTag)
-	}
-
-	resp, err := c.BroadcastTx(ctx, msgs, opts.TxOpts)
-	if err != nil {
-		return "", err
-	}
-
-	txnHash := resp.TxResponse.TxHash
-	if !opts.IsAsyncMode {
-		ctxTimeout, cancel := context.WithTimeout(ctx, types.ContextTimeout)
-		defer cancel()
-		txnResponse, err := c.WaitForTx(ctxTimeout, txnHash)
-		if err != nil {
-			return txnHash, fmt.Errorf("the transaction has been submitted, please check it later:%v", err)
-		}
-		if txnResponse.TxResult.Code != 0 {
-			return txnHash, fmt.Errorf("the createObject txn has failed with response code: %d, codespace:%s", txnResponse.TxResult.Code, txnResponse.TxResult.Codespace)
-		}
-	}
-	return txnHash, nil
 }
 
 func (c *Client) sendCreateObjectEvmTxs(ctx context.Context, msg *storageTypes.MsgCreateObject, opts types.CreateObjectOptions) (string, error) {
@@ -282,24 +251,6 @@ func (c *Client) sendUpdateObjectContentTx(ctx context.Context, msg *storageType
 	return txnHash, nil
 }
 
-func (c *Client) sendUpdateObjectContentEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateObjectContent, opts types.UpdateObjectOptions) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return "", err
-	}
-	txRsp, err := session.UpdateObjectContent(
-		msg.BucketName,
-		msg.ObjectName,
-		msg.PayloadSize,
-		msg.ContentType,
-		toStorageCheckSum(msg.ExpectChecksums),
-	)
-	if err != nil {
-		return "", err
-	}
-	return txRsp.Hash().String(), nil
-}
-
 // CancelUpdateObjectContent sends CancelUpdateObjectContent tx to moca chain,
 // it returns the transaction hash value and error
 func (c *Client) CancelUpdateObjectContent(ctx context.Context, bucketName, objectName string, opts types.CancelUpdateObjectOption) (string, error) {
@@ -338,12 +289,7 @@ func (c *Client) DeleteObject(ctx context.Context, bucketName, objectName string
 	}
 
 	delObjectMsg := storageTypes.NewMsgDeleteObject(c.MustGetDefaultAccount().GetAddress(), bucketName, objectName)
-	// return c.sendDeleteObjectTx(ctx, delObjectMsg, opt)
 	return c.sendDeleteObjectEvmTx(ctx, delObjectMsg, opt)
-}
-
-func (c *Client) sendDeleteObjectTx(ctx context.Context, msg *storageTypes.MsgDeleteObject, opt types.DeleteObjectOption) (string, error) {
-	return c.sendTxn(ctx, msg, opt.TxOpts)
 }
 
 func (c *Client) sendDeleteObjectEvmTx(ctx context.Context, msg *storageTypes.MsgDeleteObject, opt types.DeleteObjectOption) (string, error) {
@@ -1124,8 +1070,6 @@ func (c *Client) PutObjectPolicy(ctx context.Context, bucketName, objectName str
 	}
 	putPolicyMsg := storageTypes.NewMsgPutPolicy(c.MustGetDefaultAccount().GetAddress(), resource.String(),
 		principal, statements, expireTime)
-
-	// return c.sendPutPolicyTxn(ctx, putPolicyMsg, opt.TxOpts)
 	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg)
 }
 
@@ -1138,7 +1082,6 @@ func (c *Client) DeleteObjectPolicy(ctx context.Context, bucketName, objectName 
 
 	resource := mocadTypes.NewObjectGRN(bucketName, objectName).String()
 	delPolicyMsg := storageTypes.NewMsgDeletePolicy(c.MustGetDefaultAccount().GetAddress(), resource, principal)
-	// return c.sendDelPolicyTxn(ctx, c.MustGetDefaultAccount().GetAddress(), delPolicyMsg, opt.TxOpts)
 	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg)
 }
 
@@ -1513,12 +1456,7 @@ func (c *Client) UpdateObjectVisibility(ctx context.Context, bucketName, objectN
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opt.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	// return c.sendUpdateObjectInfoTx(ctx, updateObjectMsg, opt)
 	return c.sendUpdateObjectInfoEvmTx(ctx, updateObjectMsg, opt)
-}
-
-func (c *Client) sendUpdateObjectInfoTx(ctx context.Context, updateObjectMsg *storageTypes.MsgUpdateObjectInfo, opt types.UpdateObjectOption) (string, error) {
-	return c.sendTxn(ctx, updateObjectMsg, opt.TxOpts)
 }
 
 func (c *Client) sendUpdateObjectInfoEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateObjectInfo, opt types.UpdateObjectOption) (string, error) {
