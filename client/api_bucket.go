@@ -219,35 +219,7 @@ func (c *Client) CreateBucket(ctx context.Context, bucketName string, primaryAdd
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	// return c.sendCreateBucketTxn(ctx, createBucketMsg, opts)
 	return c.sendCreateBucketEvmTxn(ctx, createBucketMsg, opts)
-}
-
-func (c *Client) sendCreateBucketTxn(ctx context.Context, createBucketMsg *storageTypes.MsgCreateBucket, opts types.CreateBucketOptions) (string, error) {
-	msgs := []sdk.Msg{createBucketMsg}
-	if opts.Tags != nil {
-		// Set tag
-		grn := mocadTypes.NewBucketGRN(createBucketMsg.BucketName)
-		msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), grn.String(), opts.Tags)
-		msgs = append(msgs, msgSetTag)
-	}
-	resp, err := c.BroadcastTx(ctx, msgs, opts.TxOpts)
-	if err != nil {
-		return "", err
-	}
-	txnHash := resp.TxResponse.TxHash
-	if !opts.IsAsyncMode {
-		ctxTimeout, cancel := context.WithTimeout(ctx, types.ContextTimeout)
-		defer cancel()
-		txnResponse, err := c.WaitForTx(ctxTimeout, txnHash)
-		if err != nil {
-			return txnHash, fmt.Errorf("the transaction has been submitted, please check it later:%v", err)
-		}
-		if txnResponse.TxResult.Code != 0 {
-			return txnHash, fmt.Errorf("the createBucket txn has failed with response code: %d, codespace:%s", txnResponse.TxResult.Code, txnResponse.TxResult.Codespace)
-		}
-	}
-	return txnHash, nil
 }
 
 func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*storage.IStorageSession, error) {
@@ -322,12 +294,7 @@ func (c *Client) DeleteBucket(ctx context.Context, bucketName string, opt types.
 		return "", err
 	}
 	delBucketMsg := storageTypes.NewMsgDeleteBucket(c.MustGetDefaultAccount().GetAddress(), bucketName)
-	// return c.sendDeleteBucketTx(ctx, delBucketMsg, opt)
 	return c.sendDeleteBucketEvmTx(ctx, delBucketMsg)
-}
-
-func (c *Client) sendDeleteBucketTx(ctx context.Context, delBucketMsg *storageTypes.MsgDeleteBucket, opt types.DeleteBucketOption) (string, error) {
-	return c.sendTxn(ctx, delBucketMsg, opt.TxOpts)
 }
 
 func (c *Client) sendDeleteBucketEvmTx(ctx context.Context, delBucketMsg *storageTypes.MsgDeleteBucket) (string, error) {
@@ -512,12 +479,7 @@ func (c *Client) UpdateBucketInfo(ctx context.Context, bucketName string, opts t
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	// return c.sendUpdateBucketInfoTxn(ctx, updateBucketMsg, opts.TxOpts)
 	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opts.TxOpts)
-}
-
-func (c *Client) sendUpdateBucketInfoTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo, opt *gnfdSdkTypes.TxOption) (string, error) {
-	return c.sendTxn(ctx, msg, opt)
 }
 
 func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo, opt *gnfdSdkTypes.TxOption) (string, error) {
@@ -616,8 +578,6 @@ func (c *Client) PutBucketPolicy(ctx context.Context, bucketName string, princip
 
 	putPolicyMsg := storageTypes.NewMsgPutPolicy(c.MustGetDefaultAccount().GetAddress(), resource.String(),
 		principal, statements, opt.PolicyExpireTime)
-
-	// return c.sendPutPolicyTxn(ctx, putPolicyMsg, opt.TxOpts)
 	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg)
 }
 
@@ -695,7 +655,6 @@ func (c *Client) DeleteBucketPolicy(ctx context.Context, bucketName string, prin
 		return "", err
 	}
 	delPolicyMsg := storageTypes.NewMsgDeletePolicy(c.MustGetDefaultAccount().GetAddress(), resource, principal)
-	// return c.sendDelPolicyTxn(ctx, delPolicyMsg, opt.TxOpts)
 	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg)
 }
 
@@ -1040,8 +999,6 @@ func (c *Client) BuyQuotaForBucket(ctx context.Context, bucketName string, targe
 		return "", err
 	}
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &targetQuota, paymentAddr, bucketInfo.Visibility)
-
-	// return c.sendUpdateBucketInfoTxn(ctx, updateBucketMsg, opt.TxOpts)
 	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opt.TxOpts)
 }
 
@@ -1214,28 +1171,7 @@ func (c *Client) MigrateBucket(ctx context.Context, bucketName string, dstPrimar
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	// return c.sendMigrateBucketTX(ctx, signedMsg, opts)
 	return c.sendMigrateBucketEvmTX(ctx, signedMsg)
-}
-
-func (c *Client) sendMigrateBucketTX(ctx context.Context, msg *storageTypes.MsgMigrateBucket, opts types.MigrateBucketOptions) (string, error) {
-	resp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, opts.TxOpts)
-	if err != nil {
-		return "", err
-	}
-	txnHash := resp.TxResponse.TxHash
-	if !opts.IsAsyncMode {
-		ctxTimeout, cancel := context.WithTimeout(ctx, types.ContextTimeout)
-		defer cancel()
-		txnResponse, err := c.WaitForTx(ctxTimeout, txnHash)
-		if err != nil {
-			return txnHash, fmt.Errorf("the transaction has been submitted, please check it later:%v", err)
-		}
-		if txnResponse.TxResult.Code != 0 {
-			return txnHash, fmt.Errorf("the migrateBucket txn has failed with response code: %d, codespace:%s", txnResponse.TxResult.Code, txnResponse.TxResult.Codespace)
-		}
-	}
-	return txnHash, nil
 }
 
 func (c *Client) sendMigrateBucketEvmTX(ctx context.Context, msg *storageTypes.MsgMigrateBucket) (string, error) {

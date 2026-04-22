@@ -506,16 +506,7 @@ func (c *Client) QueryVote(ctx context.Context, eventType int, eventHash []byte)
 // - ret2: Return error if SetTag failed, otherwise return nil.
 func (c *Client) SetTag(ctx context.Context, resourceGRN string, tags storageTypes.ResourceTags, opts gosdktypes.SetTagsOptions) (string, error) {
 	msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), resourceGRN, &tags)
-	// return c.sendSetTagTxn(ctx, msgSetTag, opts)
 	return c.sendSetTagEvmTxn(ctx, msgSetTag)
-}
-
-func (c *Client) sendSetTagTxn(ctx context.Context, msg *storageTypes.MsgSetTag, opts gosdktypes.SetTagsOptions) (string, error) {
-	resp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, opts.TxOpts)
-	if err != nil {
-		return "", err
-	}
-	return resp.TxResponse.TxHash, err
 }
 
 func (c *Client) sendSetTagEvmTxn(ctx context.Context, msg *storageTypes.MsgSetTag) (string, error) {

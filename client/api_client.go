@@ -804,33 +804,6 @@ func (c *Client) GetPieceHashRoots(reader io.Reader, segSize int64,
 	return pieceHashRoots[0], pieceHashRoots[1:], size, redundancyType, nil
 }
 
-// sendPutPolicyTxn broadcast the putPolicy msg and return the txn hash
-func (c *Client) sendPutPolicyTxn(ctx context.Context, msg *storageTypes.MsgPutPolicy, txOpts *gnfdSdkTypes.TxOption) (string, error) {
-	if err := msg.ValidateBasic(); err != nil {
-		return "", err
-	}
-
-	resp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, txOpts)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.TxResponse.TxHash, err
-}
-
-// sendDelPolicyTxn broadcast the deletePolicy msg and return the txn hash
-func (c *Client) sendDelPolicyTxn(ctx context.Context, delPolicyMsg *storageTypes.MsgDeletePolicy, txOpts *gnfdSdkTypes.TxOption) (string, error) {
-	if err := delPolicyMsg.ValidateBasic(); err != nil {
-		return "", err
-	}
-	resp, err := c.BroadcastTx(ctx, []sdk.Msg{delPolicyMsg}, txOpts)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.TxResponse.TxHash, err
-}
-
 func (c *Client) sendTxn(ctx context.Context, msg sdk.Msg, opt *gnfdSdkTypes.TxOption) (string, error) {
 	if validateBasic, ok := msg.(sdk.HasValidateBasic); ok {
 		if err := validateBasic.ValidateBasic(); err != nil {
