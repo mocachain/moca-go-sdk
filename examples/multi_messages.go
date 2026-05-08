@@ -8,8 +8,8 @@ import (
 
 	"cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/evmos/evmos/v12/types/resource"
-	"github.com/evmos/evmos/v12/x/permission/types"
+	"github.com/mocachain/moca/v2/types/resource"
+	"github.com/mocachain/moca/v2/x/permission/types"
 
 	"github.com/mocachain/moca-go-sdk/bsc"
 	"github.com/mocachain/moca-go-sdk/bsctypes"

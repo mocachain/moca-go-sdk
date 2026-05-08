@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
-	mocadTypes "github.com/evmos/evmos/v12/types"
-	"github.com/evmos/evmos/v12/x/evm/precompiles/bank"
-	paymentTypes "github.com/evmos/evmos/v12/x/payment/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	mocadTypes "github.com/mocachain/moca/v2/types"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/bank"
+	paymentTypes "github.com/mocachain/moca/v2/x/payment/types"
 	"github.com/mocachain/moca-go-sdk/types"
 )
 

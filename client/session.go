@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/evmos/evmos/v12/x/evm/precompiles/bank"
-	"github.com/evmos/evmos/v12/x/evm/precompiles/payment"
-	"github.com/evmos/evmos/v12/x/evm/precompiles/storage"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/bank"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/payment"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 )
 
 const (

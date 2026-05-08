@@ -26,15 +26,15 @@ import (
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
 
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
-	gnfdsdk "github.com/evmos/evmos/v12/sdk/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 
-	mocadTypes "github.com/evmos/evmos/v12/types"
-	gnfdCommonTypes "github.com/evmos/evmos/v12/types/common"
-	"github.com/evmos/evmos/v12/types/s3util"
-	"github.com/evmos/evmos/v12/x/evm/precompiles/storage"
-	permTypes "github.com/evmos/evmos/v12/x/permission/types"
-	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	mocadTypes "github.com/mocachain/moca/v2/types"
+	gnfdCommonTypes "github.com/mocachain/moca/v2/types/common"
+	"github.com/mocachain/moca/v2/types/s3util"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
+	permTypes "github.com/mocachain/moca/v2/x/permission/types"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 )
 
 // IBucketClient interface defines functions related to bucket.

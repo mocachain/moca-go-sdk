@@ -6,8 +6,8 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
-	storageTestUtil "github.com/evmos/evmos/v12/testutil/storage"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
 )

@@ -9,7 +9,7 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/evmos/evmos/v12/sdk/keys"
+	"github.com/mocachain/moca/v2/sdk/keys"
 )
 
 // Account indicates the user's identity information used for interaction with Moca.
