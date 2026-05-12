@@ -11,7 +11,6 @@ import (
 
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
-	"github.com/mocachain/moca/v2/sdk/keys"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/stretchr/testify/suite"
 )
