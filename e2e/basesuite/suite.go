@@ -20,7 +20,7 @@ var (
 	Endpoint    = envOrDefault("MOCA_E2E_ENDPOINT", "http://localhost:26657")
 	EVMEndpoint = envOrDefault("MOCA_E2E_EVM_ENDPOINT", "http://localhost:8545")
 	ChainID     = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
-	LocalupDir  = envOrDefault("MOCA_E2E_LOCALUP_DIR", "../../moca/deployment/localup/.local")
+	LocalupDir  = resolveLocalupDir()
 )
 
 func envOrDefault(key, defaultValue string) string {
@@ -28,6 +28,29 @@ func envOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func resolveLocalupDir() string {
+	if value := os.Getenv("MOCA_E2E_LOCALUP_DIR"); value != "" {
+		return value
+	}
+
+	candidates := []string{
+		"../moca/deployment/localup/.local",
+		"../../moca/deployment/localup/.local",
+		"../../../moca/deployment/localup/.local",
+		"../../../../moca/deployment/localup/.local",
+	}
+
+	for _, candidate := range candidates {
+		cleaned := filepath.Clean(candidate)
+		if _, err := os.Stat(cleaned); err == nil {
+			return cleaned
+		}
+	}
+
+	// Fall back to the CI sibling checkout layout.
+	return filepath.Clean("../../../moca/deployment/localup/.local")
 }
 
 func ParseMnemonicFromFile(fileName string) string {
