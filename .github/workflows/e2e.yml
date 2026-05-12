@@ -14,7 +14,7 @@ on:
 env:
   MocaTag: 5666254d3403567090b7be993ac73a463d8e5a72
   MocaCommonTag: feat/evmos_replace
-  MocaStorageProviderTag: feat-get-recommended-vgf
+  MocaStorageProviderTag: 4f4184da712318def95575921605d3b4907bf716
   GOPRIVATE: github.com/mocachain
   GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
   MYSQL_USER: root
