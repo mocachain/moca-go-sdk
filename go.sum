@@ -979,6 +979,7 @@ github.com/mocachain/moca-cometbft v1.2.0-rc0.0.20260320015437-83994359d443 h1:k
 github.com/mocachain/moca-cometbft v1.2.0-rc0.0.20260320015437-83994359d443/go.mod h1:K2CikF6RigL+TVti00VmQbn94M+c5dGwNEROLIv7tZU=
 github.com/mocachain/moca-common/go v1.2.0-rc1.0.20260320043131-de7b6add70a3 h1:A4vO86Z965dGYqKUfMCIc9W1rtwAWcZdrtFs+k8pnVM=
 github.com/mocachain/moca-common/go v1.2.0-rc1.0.20260320043131-de7b6add70a3/go.mod h1:62axuS+RwQqIbxtq1w4N30SaBx81UYD8pjzb55R4aG0=
+github.com/mocachain/moca-common/go v1.2.0-rc1.0.20260508063328-4c8a3ef11904/go.mod h1:sV2izj88goJW6Z9xK5t+UPXg3kpNkxhdrZh8gEzwN6s=
 github.com/mocachain/moca-common/go v1.2.0-rc1.0.20260511073229-0a8b0dd3377c h1:Ba+4HX0OZEFh1ffVMmXvsFhKkgZ1O/65de9jzKyRPBM=
 github.com/mocachain/moca-common/go v1.2.0-rc1.0.20260511073229-0a8b0dd3377c/go.mod h1:/CRPjB5etWzqRrAVeDmmCvYTZ9xCM9H7ILMFk0Jkcls=
 github.com/mocachain/moca-cosmos-sdk v1.2.0-rc0.0.20260320043122-0edb2e9d600f h1:xhL/OklvEScO0rSBph2JhVdLVCB2YiI38XA785+c7uI=
