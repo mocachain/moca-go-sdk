@@ -12,7 +12,10 @@ import (
 	"time"
 
 	"cosmossdk.io/math"
-	"github.com/mocachain/moca/v2/sdk/keys"
+	"github.com/mocachain/moca-go-sdk/client"
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 	mcSDkTypes "github.com/mocachain/moca/v2/sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	mocadTypes "github.com/mocachain/moca/v2/types"
@@ -21,10 +24,6 @@ import (
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/stretchr/testify/suite"
-	"github.com/mocachain/moca-go-sdk/client"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 type StorageTestSuite struct {
@@ -931,10 +930,7 @@ func (s *StorageTestSuite) Test_Get_Object_With_ForcedSpEndpoint() {
 
 	s.T().Log("---> client.New with ForceToUseSpecifiedSpEndpointForDownloadOnly option param filled <---")
 	origClient := s.Client
-	mnemonic := basesuite.ParseValidatorMnemonic(0)
-	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
-	s.Require().NoError(err)
-	s.Client, err = client.New(basesuite.ChainID, basesuite.Endpoint, basesuite.EVMEndpoint, priKey, client.Option{
+	s.Client, err = client.New(basesuite.ChainID, basesuite.Endpoint, basesuite.EVMEndpoint, s.DefaultPrivateKey, client.Option{
 		DefaultAccount: s.DefaultAccount,
 		ForceToUseSpecifiedSpEndpointForDownloadOnly: s.PrimarySP.Endpoint,
 	})

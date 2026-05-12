@@ -1,19 +1,19 @@
 package basesuite
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/mocachain/moca/v2/sdk/keys"
-	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-
-	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
+	"github.com/mocachain/moca/v2/sdk/keys"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+	"github.com/stretchr/testify/suite"
 )
 
 var (
@@ -21,6 +21,7 @@ var (
 	EVMEndpoint = envOrDefault("MOCA_E2E_EVM_ENDPOINT", "http://localhost:8545")
 	ChainID     = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
 	LocalupDir  = resolveLocalupDir()
+	MocadPath   = resolveMocadPath()
 )
 
 func envOrDefault(key, defaultValue string) string {
@@ -53,49 +54,77 @@ func resolveLocalupDir() string {
 	return filepath.Clean("../../../moca/deployment/localup/.local")
 }
 
-func ParseMnemonicFromFile(fileName string) string {
-	fileName = filepath.Clean(fileName)
-	file, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
+func resolveMocadPath() string {
+	if value := os.Getenv("MOCA_E2E_MOCAD"); value != "" {
+		return value
 	}
-	// #nosec
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(file)
 
-	scanner := bufio.NewScanner(file)
-	var line string
-	for scanner.Scan() {
-		if scanner.Text() != "" {
-			line = scanner.Text()
+	candidates := []string{
+		filepath.Join(LocalupDir, "..", "..", "..", "build", "mocad"),
+		"../moca/build/mocad",
+		"../../moca/build/mocad",
+		"../../../moca/build/mocad",
+		"../../../../moca/build/mocad",
+	}
+
+	for _, candidate := range candidates {
+		cleaned := filepath.Clean(candidate)
+		if info, err := os.Stat(cleaned); err == nil && !info.IsDir() {
+			return cleaned
 		}
 	}
-	return line
+
+	return filepath.Clean(filepath.Join(LocalupDir, "..", "..", "..", "build", "mocad"))
+}
+
+func exportLocalPrivateKey(name, homeDir string) (string, error) {
+	cmd := exec.Command(
+		MocadPath,
+		"keys",
+		"export",
+		name,
+		"--unarmored-hex",
+		"--unsafe",
+		"--keyring-backend",
+		"test",
+		"--home",
+		filepath.Clean(homeDir),
+	)
+	cmd.Stdin = strings.NewReader("y\n")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("export private key for %s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
+	privateKey, err := exportLocalPrivateKey(name, homeDir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	account, err := types.NewAccountFromPrivateKey(name, privateKey)
+	if err != nil {
+		return nil, "", err
+	}
+	return account, privateKey, nil
 }
 
 type BaseSuite struct {
 	suite.Suite
-	DefaultAccount  *types.Account
-	Client          client.IClient
-	ClientContext   context.Context
-	ChallengeClient client.IClient
-}
-
-// ParseValidatorMnemonic read the validator mnemonic from file
-func ParseValidatorMnemonic(i int) string {
-	return ParseMnemonicFromFile(filepath.Join(LocalupDir, fmt.Sprintf("validator%d/info", i)))
+	DefaultAccount      *types.Account
+	DefaultPrivateKey   string
+	Client              client.IClient
+	ClientContext       context.Context
+	ChallengeClient     client.IClient
+	ChallengePrivateKey string
 }
 
 func (s *BaseSuite) NewChallengeClient() {
-	mnemonic := ParseMnemonicFromFile(filepath.Join(LocalupDir, "challenger0/challenger_info"))
-	challengeAcc, err := types.NewAccountFromMnemonic("challenge_account", mnemonic)
+	challengeAcc, priKey, err := loadLocalAccount("challenger0", filepath.Join(LocalupDir, "challenger0"))
 	s.Require().NoError(err)
-	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
-	s.Require().NoError(err)
+	s.ChallengePrivateKey = priKey
 	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: challengeAcc,
 	})
@@ -103,11 +132,9 @@ func (s *BaseSuite) NewChallengeClient() {
 }
 
 func (s *BaseSuite) SetupSuite() {
-	mnemonic := ParseValidatorMnemonic(0)
-	account, err := types.NewAccountFromMnemonic("test", mnemonic)
+	account, priKey, err := loadLocalAccount("validator0", filepath.Join(LocalupDir, "validator0"))
 	s.Require().NoError(err)
-	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
-	s.Require().NoError(err)
+	s.DefaultPrivateKey = priKey
 	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: account,
 	})
