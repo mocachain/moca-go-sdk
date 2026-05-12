@@ -187,7 +187,7 @@ func (c *Client) GetLatestBlock(ctx context.Context) (*bfttypes.Block, error) {
 func (c *Client) GetLatestBlockHeight(ctx context.Context) (int64, error) {
 	resp, err := c.chainClient.GetStatus(ctx)
 	if err != nil {
-		return 0, nil
+		return 0, errors.Wrap(err, "get latest block height")
 	}
 	return resp.SyncInfo.LatestBlockHeight, nil
 }
