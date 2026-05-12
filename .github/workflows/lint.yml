@@ -47,9 +47,8 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - run: |
-          go mod tidy
-          go mod download
+      - name: Download modules
+        run: go mod download
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
