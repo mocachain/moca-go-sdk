@@ -9,13 +9,10 @@ import (
 	oracletypes "github.com/cosmos/cosmos-sdk/x/oracle/types"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
-	bridgetypes "github.com/mocachain/moca/v2/x/bridge/types"
 	storagetypes "github.com/mocachain/moca/v2/x/storage/types"
 )
 
 type ICrossChainClient interface {
-	TransferOut(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
-
 	Claims(ctx context.Context, srcShainId, destChainId uint32, sequence uint64, timestamp uint64, payload []byte, voteAddrSet []uint64, aggSignature []byte, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 	GetChannelSendSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error)
 	GetChannelReceiveSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error)
@@ -25,31 +22,6 @@ type ICrossChainClient interface {
 	MirrorGroup(ctx context.Context, destChainId sdk.ChainID, groupId math.Uint, groupName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 	MirrorBucket(ctx context.Context, destChainId sdk.ChainID, bucketId math.Uint, bucketName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 	MirrorObject(ctx context.Context, destChainId sdk.ChainID, objectId math.Uint, bucketName, objectName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
-}
-
-// TransferOut - Make a transfer from Moca to BSC
-//
-// - ctx: Context variables for the current API call.
-//
-// - toAddress: The destination address in BSC.
-//
-// - amount: The amount of amoca to transfer.
-//
-// - txOption: The txOption for sending transactions.
-//
-// - ret1: Transaction response from Moca.
-//
-// - ret2: Return error if transaction failed, otherwise return nil.
-func (c *Client) TransferOut(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgTransferOut := bridgetypes.NewMsgTransferOut(c.MustGetDefaultAccount().GetAddress().String(),
-		toAddress,
-		&sdk.Coin{Denom: gnfdSdkTypes.Denom, Amount: amount},
-	)
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msgTransferOut}, &txOption)
-	if err != nil {
-		return nil, err
-	}
-	return txResp.TxResponse, nil
 }
 
 // Claims - Claim cross-chain packages from BSC to Moca, used by relayers which run by validators

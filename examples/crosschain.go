@@ -4,12 +4,11 @@ import (
 	"context"
 	"log"
 
-	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
-	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 )
 
 // it is the example of cross-chain SDKs usage
@@ -24,20 +23,8 @@ func TestCrossChain() {
 	}
 	ctx := context.Background()
 
-	// cross chain transfer to an account in BSC
-	transferOut(cli, ctx)
-
 	// mirror resource to BSC
 	mirrorBucket(cli, ctx)
-}
-
-func transferOut(cli client.IClient, ctx context.Context) {
-	// cross chain transfer to BSC
-	txResp, err := cli.TransferOut(ctx, toAddress, math.NewInt(123456), gnfdSdkTypes.TxOption{})
-	handleErr(err, "crossChainTransfer")
-	waitForTx, _ := cli.WaitForTx(ctx, txResp.TxHash)
-	log.Printf("Wait for tx: %s", waitForTx.TxResult.String())
-	log.Printf("the tx log is %s", txResp.String())
 }
 
 func mirrorBucket(cli client.IClient, ctx context.Context) {
