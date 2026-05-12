@@ -8,6 +8,11 @@ on:
     branches:
       - main
       - develop
+
+env:
+  MocaTag: 5666254d3403567090b7be993ac73a463d8e5a72
+  MocaCommonTag: feat/evmos_replace
+
 permissions:
   contents: read
   # Optional: allow read access to pull request. Use with `only-new-issues` option.
@@ -31,6 +36,16 @@ jobs:
 
       - run: export GOPRIVATE="github.com/mocachain/*"
       - run: git config --global url."https://${{ secrets.GH_TOKEN }}@github.com".insteadOf "https://github.com"
+      - name: Checkout dependency repos
+        run: |
+          git clone https://github.com/mocachain/moca.git ../moca
+          cd ../moca
+          git checkout ${{ env.MocaTag }}
+          cd ../moca-go-sdk
+          git clone https://github.com/mocachain/moca-common.git ../moca-common
+          cd ../moca-common
+          git checkout ${{ env.MocaCommonTag }}
+          cd ../moca-go-sdk
 
       - uses: actions/cache@v4
         with:
@@ -48,7 +63,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Download modules
-        run: go mod download
+        run: |
+          go mod edit -replace github.com/mocachain/moca/v2=../moca
+          go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
+          go mod download
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
