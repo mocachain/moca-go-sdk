@@ -2,16 +2,16 @@ package client
 
 import (
 	"context"
+	"errors"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	crosschaintypes "github.com/cosmos/cosmos-sdk/x/crosschain/types"
 	oracletypes "github.com/cosmos/cosmos-sdk/x/oracle/types"
-	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	bridgetypes "github.com/mocachain/moca/v2/x/bridge/types"
-	storagetypes "github.com/mocachain/moca/v2/x/storage/types"
 )
+
+var errCrossChainAPINotSupported = errors.New("cross-chain query and mirror APIs are not supported by the current moca/v2 sdk client")
 
 type ICrossChainClient interface {
 	TransferOut(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
@@ -107,17 +107,7 @@ func (c *Client) Claims(ctx context.Context, srcChainId, destChainId uint32, seq
 //
 // - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetChannelSendSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error) {
-	resp, err := c.chainClient.CrosschainQueryClient.SendSequence(
-		ctx,
-		&crosschaintypes.QuerySendSequenceRequest{
-			DestChainId: uint32(destChainId),
-			ChannelId:   channelId,
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return resp.Sequence, nil
+	return 0, errCrossChainAPINotSupported
 }
 
 // GetChannelReceiveSequence - Get the next receive sequence for a channel
@@ -132,17 +122,7 @@ func (c *Client) GetChannelSendSequence(ctx context.Context, destChainId sdk.Cha
 //
 // - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetChannelReceiveSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error) {
-	resp, err := c.chainClient.CrosschainQueryClient.ReceiveSequence(
-		ctx,
-		&crosschaintypes.QueryReceiveSequenceRequest{
-			DestChainId: uint32(destChainId),
-			ChannelId:   channelId,
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return resp.Sequence, nil
+	return 0, errCrossChainAPINotSupported
 }
 
 // GetInturnRelayer - Get the in-turn relayer bls public key and its relay interval
@@ -155,7 +135,7 @@ func (c *Client) GetChannelReceiveSequence(ctx context.Context, destChainId sdk.
 //
 // - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetInturnRelayer(ctx context.Context, req *oracletypes.QueryInturnRelayerRequest) (*oracletypes.QueryInturnRelayerResponse, error) {
-	return c.chainClient.InturnRelayer(ctx, req)
+	return nil, errCrossChainAPINotSupported
 }
 
 // GetCrossChainPackage - Get the cross-chain package by sequence.
@@ -172,18 +152,7 @@ func (c *Client) GetInturnRelayer(ctx context.Context, req *oracletypes.QueryInt
 //
 // - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetCrossChainPackage(ctx context.Context, destChainId sdk.ChainID, channelId uint32, sequence uint64) ([]byte, error) {
-	resp, err := c.chainClient.CrossChainPackage(
-		ctx,
-		&crosschaintypes.QueryCrossChainPackageRequest{
-			DestChainId: uint32(destChainId),
-			ChannelId:   channelId,
-			Sequence:    sequence,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Package, nil
+	return nil, errCrossChainAPINotSupported
 }
 
 // MirrorGroup - Mirror the group to BSC as an NFT
@@ -202,24 +171,7 @@ func (c *Client) GetCrossChainPackage(ctx context.Context, destChainId sdk.Chain
 //
 // - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorGroup(ctx context.Context, destChainId sdk.ChainID, groupId math.Uint, groupName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgMirrorGroup := storagetypes.NewMsgMirrorGroup(c.MustGetDefaultAccount().GetAddress(), destChainId, groupId, groupName)
-	return c.sendMirrorGroupEvmTx(ctx, msgMirrorGroup)
-}
-
-func (c *Client) sendMirrorGroupEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorGroup) (*sdk.TxResponse, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return nil, err
-	}
-	txRsp, err := session.MirrorGroup(
-		msg.Id.BigInt(),
-		msg.GroupName,
-		msg.DestChainId,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return toSDKTxResponse(txRsp), nil
+	return nil, errCrossChainAPINotSupported
 }
 
 // MirrorBucket - Mirror the bucket to BSC as an NFT
@@ -238,22 +190,7 @@ func (c *Client) sendMirrorGroupEvmTx(ctx context.Context, msg *storagetypes.Msg
 //
 // - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorBucket(ctx context.Context, destChainId sdk.ChainID, bucketId math.Uint, bucketName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgMirrorBucket := storagetypes.NewMsgMirrorBucket(c.MustGetDefaultAccount().GetAddress(), destChainId, bucketId, bucketName)
-	return c.sendMirrorBucketTx(ctx, msgMirrorBucket, txOption)
-}
-
-func toSDKTxResponse(r *evmTypes.Transaction) *sdk.TxResponse {
-	return &sdk.TxResponse{
-		TxHash: r.Hash().String(),
-	}
-}
-
-func (c *Client) sendMirrorBucketTx(ctx context.Context, msg *storagetypes.MsgMirrorBucket, opts gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &opts)
-	if err != nil {
-		return nil, err
-	}
-	return txResp.TxResponse, nil
+	return nil, errCrossChainAPINotSupported
 }
 
 // MirrorObject - Mirror the object to BSC as an NFT
@@ -274,23 +211,5 @@ func (c *Client) sendMirrorBucketTx(ctx context.Context, msg *storagetypes.MsgMi
 //
 // - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorObject(ctx context.Context, destChainId sdk.ChainID, objectId math.Uint, bucketName, objectName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgMirrorObject := storagetypes.NewMsgMirrorObject(c.MustGetDefaultAccount().GetAddress(), destChainId, objectId, bucketName, objectName)
-	return c.sendMirrorObjectEvmTx(ctx, msgMirrorObject)
-}
-
-func (c *Client) sendMirrorObjectEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorObject) (*sdk.TxResponse, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return nil, err
-	}
-	txRsp, err := session.MirrorObject(
-		msg.Id.BigInt(),
-		msg.BucketName,
-		msg.ObjectName,
-		msg.DestChainId,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return toSDKTxResponse(txRsp), nil
+	return nil, errCrossChainAPINotSupported
 }
