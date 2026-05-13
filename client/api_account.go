@@ -314,7 +314,7 @@ func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.I
 	return signedTx.Hash().String(), nil
 }
 
-func (c *Client) createBankEvmSession(ctx context.Context, privKey string) (*bank.IBankSession, error) {
+func (c *Client) createBankEvmSession(ctx context.Context, privKey string, gasLimit uint64) (*bank.IBankSession, error) {
 	nonce, err := c.chainClient.GetNonce(context.Background())
 	if err != nil {
 		return nil, err
@@ -324,7 +324,7 @@ func (c *Client) createBankEvmSession(ctx context.Context, privKey string) (*ban
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
+	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, gasLimit, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -348,10 +348,12 @@ func (c *Client) createBankEvmSession(ctx context.Context, privKey string) (*ban
 //
 // - ret2: Return error if transferred failed, otherwise return nil.
 func (c *Client) MultiTransfer(ctx context.Context, details []types.TransferDetail, txOption gnfdSdkTypes.TxOption) (string, error) {
-	outputs := make([]bankTypes.Output, 0)
+	outputs := make([]bank.Output, 0)
 	denom := gnfdSdkTypes.Denom
-	sum := math.NewInt(0)
 	for i := 0; i < len(details); i++ {
+		if !common.IsHexAddress(details[i].ToAddress) {
+			return "", fmt.Errorf("invalid hex address %q", details[i].ToAddress)
+		}
 		_, err := sdk.AccAddressFromHexUnsafe(details[i].ToAddress)
 		if err != nil {
 			return "", err
@@ -359,23 +361,30 @@ func (c *Client) MultiTransfer(ctx context.Context, details []types.TransferDeta
 		if details[i].Amount.IsNil() || details[i].Amount.IsNegative() {
 			return "", fmt.Errorf("transfer amount is not valid")
 		}
-		outputs = append(outputs, bankTypes.Output{
-			Address: details[i].ToAddress,
-			Coins:   []sdk.Coin{{Denom: denom, Amount: details[i].Amount}},
+		outputs = append(outputs, bank.Output{
+			ToAddress: common.HexToAddress(details[i].ToAddress),
+			Amount: []bank.Coin{{
+				Denom:  denom,
+				Amount: details[i].Amount.BigInt(),
+			}},
 		})
-		sum = sum.Add(details[i].Amount)
 	}
-	in := bankTypes.Input{
-		Address: c.MustGetDefaultAccount().GetAddress().String(),
-		Coins:   []sdk.Coin{{Denom: denom, Amount: sum}},
-	}
-	msg := &bankTypes.MsgMultiSend{
-		Inputs:  []bankTypes.Input{in},
-		Outputs: outputs,
-	}
-	tx, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &txOption)
+
+	const (
+		multiTransferBaseGas      = 180000
+		multiTransferPerOutputGas = 50000
+	)
+
+	gasLimit := uint64(multiTransferBaseGas + len(outputs)*multiTransferPerOutputGas)
+
+	session, err := c.createBankEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
-	return tx.TxResponse.TxHash, nil
+
+	txRsp, err := session.MultiSend(outputs)
+	if err != nil {
+		return "", err
+	}
+	return txRsp.Hash().String(), nil
 }
