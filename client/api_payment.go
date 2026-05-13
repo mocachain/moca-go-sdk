@@ -16,10 +16,23 @@ import (
 	mocadTypes "github.com/evmos/evmos/v12/types"
 	"github.com/evmos/evmos/v12/x/evm/precompiles/payment"
 	paymentTypes "github.com/evmos/evmos/v12/x/payment/types"
-	"github.com/rs/zerolog/log"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
+	"github.com/rs/zerolog/log"
 )
+
+func requiresCosmosTxPath(txOption *gnfdSdkTypes.TxOption) bool {
+	if txOption == nil {
+		return false
+	}
+	if txOption.Mode != nil || txOption.NoSimulate || txOption.GasLimit != 0 || txOption.Nonce != 0 || txOption.Memo != "" {
+		return true
+	}
+	if !txOption.FeePayer.Empty() || !txOption.FeeGranter.Empty() || txOption.OverrideKeyManager != nil {
+		return true
+	}
+	return len(txOption.FeeAmount) > 0
+}
 
 // IPaymentClient - Client APIs for operating and querying Moca payment accounts and stream records.
 type IPaymentClient interface {
@@ -74,7 +87,9 @@ func (c *Client) Deposit(ctx context.Context, toAddress string, amount math.Int,
 		To:      accAddress.String(),
 		Amount:  amount,
 	}
-	// return c.sendTxn(ctx, msgDeposit, &txOption)
+	if requiresCosmosTxPath(&txOption) {
+		return c.sendTxn(ctx, msgDeposit, &txOption)
+	}
 	return c.sendDepositEvmTxn(ctx, msgDeposit)
 }
 
@@ -118,7 +133,9 @@ func (c *Client) Withdraw(ctx context.Context, fromAddress string, amount math.I
 		From:    accAddress.String(),
 		Amount:  amount,
 	}
-	// return c.sendTxn(ctx, msgWithdraw, &txOption)
+	if requiresCosmosTxPath(&txOption) {
+		return c.sendTxn(ctx, msgWithdraw, &txOption)
+	}
 	return c.sendWithdrawEvmTxn(ctx, msgWithdraw)
 }
 
