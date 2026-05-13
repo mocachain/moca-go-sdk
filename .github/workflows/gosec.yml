@@ -32,6 +32,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup GitHub Token
         run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+      - name: Checkout dependency repos
+        run: |
+          git clone https://github.com/mocachain/moca.git ../moca
+          cd ../moca
+          git checkout ${{ env.MocaTag }}
+          cd ../moca-go-sdk
+          git clone https://github.com/mocachain/moca-common.git ../moca-common
+          cd ../moca-common
+          git checkout ${{ env.MocaCommonTag }}
+          cd ../moca-go-sdk
       - uses: actions/cache@v4
         with:
           # In order:
@@ -47,6 +57,13 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Wire local dependency graph
+        run: |
+          mkdir -p "$RUNNER_TEMP/moca-go-sdk-gosec"
+          cd "$RUNNER_TEMP/moca-go-sdk-gosec"
+          go work init "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/../moca" "$GITHUB_WORKSPACE/../moca-common/go"
+          echo "GOWORK=$RUNNER_TEMP/moca-go-sdk-gosec/go.work" >> "$GITHUB_ENV"
+          cd "$GITHUB_WORKSPACE"
       - name: Download modules
         run: go mod download
       - name: Run Gosec Security Scanner
