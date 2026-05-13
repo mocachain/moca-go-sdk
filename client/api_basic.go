@@ -22,10 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 	"github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -529,7 +529,7 @@ func (c *Client) sendSetTagEvmTxn(ctx context.Context, msg *storageTypes.MsgSetT
 
 			// Check if it's a nonce-related error that we should retry
 			if strings.Contains(errorMsg, gosdktypes.InvalidNonceErr) ||
-			   strings.Contains(errorMsg, gosdktypes.InvalidSequenceErr) {
+				strings.Contains(errorMsg, gosdktypes.InvalidSequenceErr) {
 
 				if retry == gosdktypes.MaxNonceRetryTime-1 {
 					// This is the last retry, return the error

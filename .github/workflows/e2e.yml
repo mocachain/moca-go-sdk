@@ -66,8 +66,11 @@ jobs:
           cd ../moca-go-sdk
       - name: Wire local dependency graph
         run: |
-          go mod edit -replace github.com/mocachain/moca/v2=../moca
-          go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
+          mkdir -p "$RUNNER_TEMP/moca-go-sdk-e2e"
+          cd "$RUNNER_TEMP/moca-go-sdk-e2e"
+          go work init "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/../moca" "$GITHUB_WORKSPACE/../moca-common/go"
+          echo "GOWORK=$RUNNER_TEMP/moca-go-sdk-e2e/go.work" >> "$GITHUB_ENV"
+          cd "$GITHUB_WORKSPACE"
           go mod download
       - name: Install compatible contract tools
         run: |

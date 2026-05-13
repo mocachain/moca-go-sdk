@@ -1,16 +1,17 @@
 package e2e
 
 import (
+	"context"
 	"encoding/hex"
-	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
 	"cosmossdk.io/math"
-	types2 "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"
+	types2 "github.com/mocachain/moca/v2/sdk/types"
 )
 
 var privateKey = "xx"
@@ -24,25 +25,40 @@ func (s *BasicTestSuite) SetupSuite() {
 }
 
 func (s *BasicTestSuite) Test_Basic() {
-	_, _, err := s.Client.GetNodeInfo(s.ClientContext)
+	ctx, cancel := context.WithTimeout(s.ClientContext, 2*time.Minute)
+	defer cancel()
+
+	_, _, err := s.Client.GetNodeInfo(ctx)
 	s.Require().NoError(err)
 
-	latestBlock, err := s.Client.GetLatestBlock(s.ClientContext)
+	latestBlock, err := s.Client.GetLatestBlock(ctx)
 	s.Require().NoError(err)
-	fmt.Println(latestBlock.String())
+	s.T().Logf("Latest block: %s height=%d", latestBlock.StringShort(), latestBlock.Header.Height)
 
 	heightBefore := latestBlock.Header.Height
-	err = s.Client.WaitForBlockHeight(s.ClientContext, heightBefore+10)
-	s.Require().NoError(err)
-	height, err := s.Client.GetLatestBlockHeight(s.ClientContext)
-	s.Require().NoError(err)
-	s.Require().GreaterOrEqual(height, heightBefore+10)
 
-	syncing, err := s.Client.GetSyncing(s.ClientContext)
+	receiver, _, err := types.NewAccount("basic_block_progression")
+	s.Require().NoError(err)
+
+	txHash, err := s.Client.Transfer(ctx, receiver.GetAddress().String(), math.NewIntFromUint64(1), types2.TxOption{})
+	s.Require().NoError(err)
+	s.T().Logf("Progression transfer tx: %s", txHash)
+
+	_, err = s.Client.WaitForTx(ctx, txHash)
+	s.Require().NoError(err)
+
+	err = s.Client.WaitForBlockHeight(ctx, heightBefore+1)
+	s.Require().NoError(err)
+
+	height, err := s.Client.GetLatestBlockHeight(ctx)
+	s.Require().NoError(err)
+	s.Require().GreaterOrEqual(height, heightBefore+1)
+
+	syncing, err := s.Client.GetSyncing(ctx)
 	s.Require().NoError(err)
 	s.Require().False(syncing)
 
-	blockByHeight, err := s.Client.GetBlockByHeight(s.ClientContext, heightBefore)
+	blockByHeight, err := s.Client.GetBlockByHeight(ctx, heightBefore)
 	s.Require().NoError(err)
 	s.Require().Equal(blockByHeight.Header.Hash(), latestBlock.Header.Hash())
 }
