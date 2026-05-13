@@ -62,6 +62,23 @@ jobs:
           mkdir -p "$RUNNER_TEMP/moca-go-sdk-gosec"
           cd "$RUNNER_TEMP/moca-go-sdk-gosec"
           go work init "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/../moca" "$GITHUB_WORKSPACE/../moca-common/go"
+          go work edit -replace cosmossdk.io/api=github.com/mocachain/moca-cosmos-sdk/api@v1.2.0-rc2.0.20260506132435-fda33c2139c4
+          go work edit -replace cosmossdk.io/client/v2=github.com/mocachain/moca-cosmos-sdk/client/v2@v2.2.0-rc2.0.20260506132435-fda33c2139c4
+          go work edit -replace cosmossdk.io/simapp=github.com/mocachain/moca-cosmos-sdk/simapp@v1.2.0-rc2.0.20260506132435-fda33c2139c4
+          go work edit -replace cosmossdk.io/store=github.com/mocachain/moca-cosmos-sdk/store@v1.2.0-rc2.0.20260506132435-fda33c2139c4
+          go work edit -replace cosmossdk.io/x/nft=github.com/mocachain/moca-cosmos-sdk/x/nft@v1.2.0-rc2.0.20260506132435-fda33c2139c4
+          go work edit -replace cosmossdk.io/x/tx=github.com/mocachain/moca-cosmos-sdk/x/tx@v1.2.0-rc2.0.20260506132435-fda33c2139c4
+          go work edit -replace github.com/cosmos/cosmos-sdk=github.com/mocachain/moca-cosmos-sdk@v1.2.1-0.20260506132435-fda33c2139c4
+          go work edit -replace github.com/confio/ics23/go=github.com/cosmos/ics23/go@v0.10.0
+          go work edit -replace github.com/cosmos/iavl=github.com/mocachain/moca-iavl@v1.2.2
+          go work edit -replace github.com/cosmos/ibc-go/v10=github.com/mocachain/moca-ibc-go/v10@v10.1.1
+          go work edit -replace github.com/cometbft/cometbft-db=github.com/mocachain/moca-cometbft-db@v1.1.1-0.20260316053933-22256c4c85b3
+          go work edit -replace github.com/0xPolygon/polygon-edge=github.com/mocachain/polygon-edge@v1.3.3-moca.1
+          go work edit -replace github.com/99designs/keyring=github.com/cosmos/keyring@v1.2.0
+          go work edit -replace github.com/btcsuite/btcd/btcec/v2=github.com/btcsuite/btcd/btcec/v2@v2.3.4
+          go work edit -replace github.com/gin-gonic/gin=github.com/gin-gonic/gin@v1.9.1
+          go work edit -replace github.com/lyft/protoc-gen-validate=github.com/bufbuild/protoc-gen-validate@v0.0.13
+          go work edit -replace nhooyr.io/websocket=nhooyr.io/websocket@v1.8.17
           echo "GOWORK=$RUNNER_TEMP/moca-go-sdk-gosec/go.work" >> "$GITHUB_ENV"
           cd "$GITHUB_WORKSPACE"
       - name: Download modules
