@@ -23,14 +23,18 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 
-	sdkclient "github.com/evmos/evmos/v12/sdk/client"
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
-	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
-	types2 "github.com/evmos/evmos/v12/x/virtualgroup/types"
 	hashlib "github.com/mocachain/moca-common/go/hash"
 	httplib "github.com/mocachain/moca-common/go/http"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
+	sdkclient "github.com/evmos/evmos/v12/sdk/client"
+	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
+	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	types2 "github.com/evmos/evmos/v12/x/virtualgroup/types"
+	sdkclient "github.com/mocachain/moca/v2/sdk/client"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+	types2 "github.com/mocachain/moca/v2/x/virtualgroup/types"
 )
 
 // IClient - Declare all Moca SDK Client APIs, including APIs for interacting with Moca Blockchain and SPs.
@@ -801,7 +805,7 @@ func (c *Client) GetPieceHashRoots(reader io.Reader, segSize int64,
 		return nil, nil, 0, storageTypes.REDUNDANCY_EC_TYPE, err
 	}
 
-	return pieceHashRoots[0], pieceHashRoots[1:], size, redundancyType, nil
+	return pieceHashRoots[0], pieceHashRoots[1:], size, toStorageRedundancyType(redundancyType), nil
 }
 
 func (c *Client) sendTxn(ctx context.Context, msg sdk.Msg, opt *gnfdSdkTypes.TxOption) (string, error) {

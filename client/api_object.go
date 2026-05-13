@@ -101,7 +101,12 @@ func (c *Client) ComputeHashRoots(reader io.Reader, isSerial bool) ([][]byte, in
 		return nil, 0, storageTypes.REDUNDANCY_EC_TYPE, err
 	}
 
-	return hashlib.ComputeIntegrityHash(reader, int64(segSize), int(dataBlocks), int(parityBlocks), isSerial)
+	hashRoots, size, redundancyType, err := hashlib.ComputeIntegrityHash(reader, int64(segSize), int(dataBlocks), int(parityBlocks), isSerial)
+	if err != nil {
+		return nil, 0, storageTypes.REDUNDANCY_EC_TYPE, err
+	}
+
+	return hashRoots, size, toStorageRedundancyType(redundancyType), nil
 }
 
 // CreateObject get approval of creating object and send createObject txn to moca chain,
