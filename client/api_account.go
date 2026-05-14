@@ -46,6 +46,9 @@ type IAccountClient interface {
 func (c *Client) SetDefaultAccount(account *types.Account) {
 	c.defaultAccount = account
 	c.chainClient.SetKeyManager(account.GetKeyManager())
+	if privateKeyHex := account.GetPrivateKeyHex(); privateKeyHex != "" {
+		c.privateKey = privateKeyHex
+	}
 }
 
 // GetDefaultAccount - Get the default account of the Client.

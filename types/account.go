@@ -16,6 +16,8 @@ import (
 type Account struct {
 	name string
 	km   keys.KeyManager
+	// privateKeyHex is only populated for secp256k1 accounts that can sign EVM txs.
+	privateKeyHex string
 }
 
 // TransferDetail includes the target address and amount for token transfer.
@@ -39,8 +41,9 @@ func NewAccountFromPrivateKey(name, privKey string) (*Account, error) {
 		return nil, err
 	}
 	return &Account{
-		name: name,
-		km:   km,
+		name:          name,
+		km:            km,
+		privateKeyHex: privKey,
 	}, nil
 }
 
@@ -80,8 +83,9 @@ func NewAccount(name string) (*Account, string, error) {
 		return nil, "", err
 	}
 	return &Account{
-		name: name,
-		km:   km,
+		name:          name,
+		km:            km,
+		privateKeyHex: hex.EncodeToString(privKey.Bytes()),
 	}, hex.EncodeToString(privKey.Bytes()), nil
 }
 
@@ -110,6 +114,11 @@ func NewBlsAccount(name string) (*Account, string, error) {
 // GetKeyManager - Get the key manager of the account.
 func (a *Account) GetKeyManager() keys.KeyManager {
 	return a.km
+}
+
+// GetPrivateKeyHex returns the hex-encoded secp256k1 private key when available.
+func (a *Account) GetPrivateKeyHex() string {
+	return a.privateKeyHex
 }
 
 // GetAddress - Get the address of the account.
