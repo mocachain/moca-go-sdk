@@ -124,7 +124,11 @@ func (c *Client) GetAccount(ctx context.Context, address string) (authTypes.Acco
 // - ret2: Return error when created failed, otherwise return nil.
 func (c *Client) CreatePaymentAccount(ctx context.Context, address string, txOption gnfdSdkTypes.TxOption) (string, error) {
 	if requiresCosmosTxPath(&txOption) {
-		msg := paymentTypes.NewMsgCreatePaymentAccount(c.MustGetDefaultAccount().GetAddress().String())
+		accAddress, err := sdk.AccAddressFromHexUnsafe(address)
+		if err != nil {
+			return "", err
+		}
+		msg := paymentTypes.NewMsgCreatePaymentAccount(accAddress.String())
 		return c.sendTxn(ctx, msg, &txOption)
 	}
 	return c.sendCreatePaymentAccountEvmTxn(ctx)
