@@ -6,8 +6,8 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	gnfdsdktypes "github.com/evmos/evmos/v12/sdk/types"
-	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 )
 
 type SetTagsOptions struct {

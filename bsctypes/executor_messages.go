@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/evmos/evmos/v12/x/payment/types"
-	storagetypes "github.com/evmos/evmos/v12/x/storage/types"
+	"github.com/mocachain/moca/v2/x/payment/types"
+	storagetypes "github.com/mocachain/moca/v2/x/storage/types"
 )
 
 type IExecutorBatchedMessage interface {

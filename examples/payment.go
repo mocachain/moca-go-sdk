@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"cosmossdk.io/math"
-	gnfdsdktypes "github.com/evmos/evmos/v12/sdk/types"
+	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
 
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"

@@ -8,9 +8,9 @@ import (
 	crosschaintypes "github.com/cosmos/cosmos-sdk/x/crosschain/types"
 	oracletypes "github.com/cosmos/cosmos-sdk/x/oracle/types"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
-	bridgetypes "github.com/evmos/evmos/v12/x/bridge/types"
-	storagetypes "github.com/evmos/evmos/v12/x/storage/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	bridgetypes "github.com/mocachain/moca/v2/x/bridge/types"
+	storagetypes "github.com/mocachain/moca/v2/x/storage/types"
 )
 
 type ICrossChainClient interface {

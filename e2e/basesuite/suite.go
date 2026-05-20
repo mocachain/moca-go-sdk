@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/evmos/evmos/v12/sdk/keys"
-	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	"github.com/mocachain/moca/v2/sdk/keys"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 
 	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/client"

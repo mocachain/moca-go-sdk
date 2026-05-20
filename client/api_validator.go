@@ -13,7 +13,7 @@ import (
 	govTypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakeTypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	gnfdsdktypes "github.com/evmos/evmos/v12/sdk/types"
+	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca-go-sdk/types"
 )
 
