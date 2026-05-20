@@ -14,8 +14,8 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	gnfdsdktypes "github.com/evmos/evmos/v12/sdk/types"
-	challengetypes "github.com/evmos/evmos/v12/x/challenge/types"
+	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
+	challengetypes "github.com/mocachain/moca/v2/x/challenge/types"
 	"github.com/rs/zerolog/log"
 
 	"github.com/mocachain/moca-go-sdk/pkg/utils"

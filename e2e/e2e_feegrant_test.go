@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
-	types2 "github.com/evmos/evmos/v12/sdk/types"
+	types2 "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"

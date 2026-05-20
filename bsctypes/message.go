@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	permissiontype "github.com/evmos/evmos/v12/x/permission/types"
+	permissiontype "github.com/mocachain/moca/v2/x/permission/types"
 
 	bsccommon "github.com/mocachain/moca-go-sdk/common"
 )

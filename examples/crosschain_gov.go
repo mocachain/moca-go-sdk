@@ -9,7 +9,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
 )

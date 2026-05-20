@@ -14,8 +14,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	govTypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	gnfdSdkTypes "github.com/evmos/evmos/v12/sdk/types"
-	spTypes "github.com/evmos/evmos/v12/x/sp/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
 )

@@ -14,7 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	govTypesV1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	stakeTypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	gnfdsdktypes "github.com/evmos/evmos/v12/sdk/types"
+	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"

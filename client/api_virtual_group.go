@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	"github.com/evmos/evmos/v12/x/virtualgroup/types"
+	"github.com/mocachain/moca/v2/x/virtualgroup/types"
 )
 
 // IVirtualGroupClient interface defines basic functions related to Virtual Group.

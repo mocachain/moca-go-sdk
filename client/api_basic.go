@@ -22,9 +22,9 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/evmos/evmos/v12/sdk/types"
-	"github.com/evmos/evmos/v12/x/evm/precompiles/storage"
-	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	"github.com/mocachain/moca/v2/sdk/types"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 )
 

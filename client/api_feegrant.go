@@ -7,7 +7,7 @@ import (
 	"cosmossdk.io/math"
 	"cosmossdk.io/x/feegrant"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	gnfdsdktypes "github.com/evmos/evmos/v12/sdk/types"
+	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
 )
 
 type IFeeGrantClient interface {
