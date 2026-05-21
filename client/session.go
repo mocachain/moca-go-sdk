@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -86,4 +87,8 @@ func CreatePaymentSession(client *ethclient.Client, txOpts bind.TransactOpts, co
 		TransactOpts: txOpts,
 	}
 	return session, nil
+}
+
+func bindContract(address common.Address, parsedABI abi.ABI, client *ethclient.Client) *bind.BoundContract {
+	return bind.NewBoundContract(address, parsedABI, client, client, client)
 }

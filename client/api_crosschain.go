@@ -2,295 +2,98 @@ package client
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	crosschaintypes "github.com/cosmos/cosmos-sdk/x/crosschain/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	oracletypes "github.com/cosmos/cosmos-sdk/x/oracle/types"
-	evmTypes "github.com/ethereum/go-ethereum/core/types"
+	bsccommon "github.com/mocachain/moca-go-sdk/common"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
-	bridgetypes "github.com/mocachain/moca/v2/x/bridge/types"
-	storagetypes "github.com/mocachain/moca/v2/x/storage/types"
+	mocadTypes "github.com/mocachain/moca/v2/types"
 )
+
+var errCrossChainFeatureRemoved = errors.New("cross-chain chain module APIs are not supported by github.com/mocachain/moca/v2 main")
 
 type ICrossChainClient interface {
 	TransferOut(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
-
 	Claims(ctx context.Context, srcShainId, destChainId uint32, sequence uint64, timestamp uint64, payload []byte, voteAddrSet []uint64, aggSignature []byte, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 	GetChannelSendSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error)
 	GetChannelReceiveSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error)
 	GetInturnRelayer(ctx context.Context, req *oracletypes.QueryInturnRelayerRequest) (*oracletypes.QueryInturnRelayerResponse, error)
 	GetCrossChainPackage(ctx context.Context, destChainId sdk.ChainID, channelId uint32, sequence uint64) ([]byte, error)
-
 	MirrorGroup(ctx context.Context, destChainId sdk.ChainID, groupId math.Uint, groupName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 	MirrorBucket(ctx context.Context, destChainId sdk.ChainID, bucketId math.Uint, bucketName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 	MirrorObject(ctx context.Context, destChainId sdk.ChainID, objectId math.Uint, bucketName, objectName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error)
 }
 
-// TransferOut - Make a transfer from Moca to BSC
-//
-// - ctx: Context variables for the current API call.
-//
-// - toAddress: The destination address in BSC.
-//
-// - amount: The amount of amoca to transfer.
-//
-// - txOption: The txOption for sending transactions.
-//
-// - ret1: Transaction response from Moca.
-//
-// - ret2: Return error if transaction failed, otherwise return nil.
+// TransferOut uses the ERC20 precompile because the old cross-chain module path was removed from moca main.
 func (c *Client) TransferOut(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgTransferOut := bridgetypes.NewMsgTransferOut(c.MustGetDefaultAccount().GetAddress().String(),
-		toAddress,
-		&sdk.Coin{Denom: gnfdSdkTypes.Denom, Amount: amount},
-	)
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msgTransferOut}, &txOption)
+	txHash, err := c.sendTransferOutEvmTx(ctx, toAddress, amount)
 	if err != nil {
 		return nil, err
 	}
-	return txResp.TxResponse, nil
+	return &sdk.TxResponse{TxHash: txHash}, nil
 }
 
-// Claims - Claim cross-chain packages from BSC to Moca, used by relayers which run by validators
-//
-// - ctx: Context variables for the current API call.
-//
-// - srcChainId: The source chain id.
-//
-// - destChainId: The destination chain id.
-//
-// - sequence: The sequence of the claim.
-//
-// - timestamp: The timestamp of the cross-chain packages.
-//
-// - payload: The payload of the claim.
-//
-// - voteAddrSet: The bitset of the voted validators.
-//
-// - aggSignature: The aggregated bls signature of the claim.
-//
-// - txOption: The txOption for sending transactions.
-//
-// - ret1: Transaction response from Moca.
-//
-// - ret2: Return error if transaction failed, otherwise return nil.
+func (c *Client) sendTransferOutEvmTx(ctx context.Context, to string, amount math.Int) (string, error) {
+	nonce, err := c.chainClient.GetNonce(context.Background())
+	if err != nil {
+		return "", err
+	}
+	chainID, err := c.evmClient.ChainID(ctx)
+	if err != nil {
+		return "", err
+	}
+	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, c.privateKey, chainID, DefaultGasLimit, nonce)
+	if err != nil {
+		return "", err
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(bsccommon.TokenABI))
+	if err != nil {
+		return "", err
+	}
+	contract := bindContract(common.HexToAddress(mocadTypes.Erc20Address), parsedABI, c.evmClient)
+	tx, err := contract.Transact(txOpts, "transferOut", common.HexToAddress(to), amount.BigInt())
+	if err != nil {
+		return "", err
+	}
+	return tx.Hash().String(), nil
+}
+
 func (c *Client) Claims(ctx context.Context, srcChainId, destChainId uint32, sequence uint64,
 	timestamp uint64, payload []byte, voteAddrSet []uint64, aggSignature []byte, txOption gnfdSdkTypes.TxOption,
 ) (*sdk.TxResponse, error) {
-	msg := oracletypes.NewMsgClaim(
-		c.MustGetDefaultAccount().GetAddress().String(),
-		srcChainId,
-		destChainId,
-		sequence,
-		timestamp,
-		payload,
-		voteAddrSet,
-		aggSignature)
-
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &txOption)
-	if err != nil {
-		return nil, err
-	}
-	return txResp.TxResponse, nil
+	return nil, errCrossChainFeatureRemoved
 }
 
-// GetChannelSendSequence - Get the next send sequence for a channel
-//
-// - ctx: Context variables for the current API call.
-//
-// - destChainId: The destination chain id.
-//
-// - channelId: The channel id to query.
-//
-// - ret1: Send sequence of the channel.
-//
-// - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetChannelSendSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error) {
-	resp, err := c.chainClient.CrosschainQueryClient.SendSequence(
-		ctx,
-		&crosschaintypes.QuerySendSequenceRequest{
-			DestChainId: uint32(destChainId),
-			ChannelId:   channelId,
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return resp.Sequence, nil
+	return 0, errCrossChainFeatureRemoved
 }
 
-// GetChannelReceiveSequence - Get the next receive sequence for a channel
-//
-// - ctx: Context variables for the current API call.
-//
-// - destChainId: The destination chain id.
-//
-// - channelId: The channel id to query.
-//
-// - ret1: Send sequence of the channel.
-//
-// - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetChannelReceiveSequence(ctx context.Context, destChainId sdk.ChainID, channelId uint32) (uint64, error) {
-	resp, err := c.chainClient.CrosschainQueryClient.ReceiveSequence(
-		ctx,
-		&crosschaintypes.QueryReceiveSequenceRequest{
-			DestChainId: uint32(destChainId),
-			ChannelId:   channelId,
-		},
-	)
-	if err != nil {
-		return 0, err
-	}
-	return resp.Sequence, nil
+	return 0, errCrossChainFeatureRemoved
 }
 
-// GetInturnRelayer - Get the in-turn relayer bls public key and its relay interval
-//
-// - ctx: Context variables for the current API call.
-//
-// - req: The request to query in-turn relayer.
-//
-// - ret1: The response of the `QueryInturnRelayerRequest` query.
-//
-// - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetInturnRelayer(ctx context.Context, req *oracletypes.QueryInturnRelayerRequest) (*oracletypes.QueryInturnRelayerResponse, error) {
-	return c.chainClient.InturnRelayer(ctx, req)
+	return nil, errCrossChainFeatureRemoved
 }
 
-// GetCrossChainPackage - Get the cross-chain package by sequence.
-//
-// - ctx: Context variables for the current API call.
-//
-// - destChainId: The destination chain id.
-//
-// - channelId: The channel id to query.
-//
-// - sequence: The sequence of the cross-chain package.
-//
-// - ret1: The bytes of the cross-chain package.
-//
-// - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetCrossChainPackage(ctx context.Context, destChainId sdk.ChainID, channelId uint32, sequence uint64) ([]byte, error) {
-	resp, err := c.chainClient.CrossChainPackage(
-		ctx,
-		&crosschaintypes.QueryCrossChainPackageRequest{
-			DestChainId: uint32(destChainId),
-			ChannelId:   channelId,
-			Sequence:    sequence,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Package, nil
+	return nil, errCrossChainFeatureRemoved
 }
 
-// MirrorGroup - Mirror the group to BSC as an NFT
-//
-// - ctx: Context variables for the current API call.
-//
-// - destChainId: The destination chain id.
-//
-// - groupId: The group id to mirror.
-//
-// - groupName: The group name.
-//
-// - txOption: The txOption for sending transactions.
-//
-// - ret1: Transaction response from Moca.
-//
-// - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorGroup(ctx context.Context, destChainId sdk.ChainID, groupId math.Uint, groupName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgMirrorGroup := storagetypes.NewMsgMirrorGroup(c.MustGetDefaultAccount().GetAddress(), destChainId, groupId, groupName)
-	return c.sendMirrorGroupEvmTx(ctx, msgMirrorGroup)
+	return nil, errCrossChainFeatureRemoved
 }
 
-func (c *Client) sendMirrorGroupEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorGroup) (*sdk.TxResponse, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return nil, err
-	}
-	txRsp, err := session.MirrorGroup(
-		msg.Id.BigInt(),
-		msg.GroupName,
-		msg.DestChainId,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return toSDKTxResponse(txRsp), nil
-}
-
-// MirrorBucket - Mirror the bucket to BSC as an NFT
-//
-// - ctx: Context variables for the current API call.
-//
-// - destChainId: The destination chain id.
-//
-// - bucketId: The bucket id to mirror.
-//
-// - bucketName: The bucket name.
-//
-// - txOption: The txOption for sending transactions.
-//
-// - ret1: Transaction response from Moca.
-//
-// - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorBucket(ctx context.Context, destChainId sdk.ChainID, bucketId math.Uint, bucketName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgMirrorBucket := storagetypes.NewMsgMirrorBucket(c.MustGetDefaultAccount().GetAddress(), destChainId, bucketId, bucketName)
-	return c.sendMirrorBucketTx(ctx, msgMirrorBucket, txOption)
+	return nil, errCrossChainFeatureRemoved
 }
 
-func toSDKTxResponse(r *evmTypes.Transaction) *sdk.TxResponse {
-	return &sdk.TxResponse{
-		TxHash: r.Hash().String(),
-	}
-}
-
-func (c *Client) sendMirrorBucketTx(ctx context.Context, msg *storagetypes.MsgMirrorBucket, opts gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	txResp, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &opts)
-	if err != nil {
-		return nil, err
-	}
-	return txResp.TxResponse, nil
-}
-
-// MirrorObject - Mirror the object to BSC as an NFT
-//
-// - ctx: Context variables for the current API call.
-//
-// - destChainId: The destination chain id.
-//
-// - objectId: The object id to mirror.
-//
-// - bucketName: The bucket name.
-//
-// - objectName: The object name.
-//
-// - txOption: The txOption for sending transactions.
-//
-// - ret1: Transaction response from Moca.
-//
-// - ret2: Return error if the transaction failed, otherwise return nil.
 func (c *Client) MirrorObject(ctx context.Context, destChainId sdk.ChainID, objectId math.Uint, bucketName, objectName string, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
-	msgMirrorObject := storagetypes.NewMsgMirrorObject(c.MustGetDefaultAccount().GetAddress(), destChainId, objectId, bucketName, objectName)
-	return c.sendMirrorObjectEvmTx(ctx, msgMirrorObject)
-}
-
-func (c *Client) sendMirrorObjectEvmTx(ctx context.Context, msg *storagetypes.MsgMirrorObject) (*sdk.TxResponse, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return nil, err
-	}
-	txRsp, err := session.MirrorObject(
-		msg.Id.BigInt(),
-		msg.BucketName,
-		msg.ObjectName,
-		msg.DestChainId,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return toSDKTxResponse(txRsp), nil
+	return nil, errCrossChainFeatureRemoved
 }
