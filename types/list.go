@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 
 	sdkmath "cosmossdk.io/math"
-	storageType "github.com/evmos/evmos/v12/x/storage/types"
+	storageType "github.com/mocachain/moca/v2/x/storage/types"
 )
 
 // QuotaInfo indicates the quota info of bucket

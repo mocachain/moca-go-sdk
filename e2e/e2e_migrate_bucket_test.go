@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	storageTestUtil "github.com/evmos/evmos/v12/testutil/storage"
-	spTypes "github.com/evmos/evmos/v12/x/sp/types"
-	storageTypes "github.com/evmos/evmos/v12/x/storage/types"
+	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
+	spTypes "github.com/mocachain/moca/v2/x/sp/types"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"
 )

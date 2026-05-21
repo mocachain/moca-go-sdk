@@ -3,8 +3,8 @@ package utils
 import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/evmos/evmos/v12/types/common"
-	permTypes "github.com/evmos/evmos/v12/x/permission/types"
+	"github.com/mocachain/moca/v2/types/common"
+	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 	"github.com/mocachain/moca-go-sdk/types"
 )
 
