@@ -7,6 +7,7 @@ import (
 	"cosmossdk.io/math"
 	"cosmossdk.io/x/feegrant"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	mocacmdconfig "github.com/mocachain/moca/v2/cmd/config"
 	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
 )
 
@@ -22,9 +23,20 @@ type IFeeGrantClient interface {
 	RevokeAllowance(ctx context.Context, granteeAddr string, txOption gnfdsdktypes.TxOption) (string, error)
 }
 
+func parseFeeGrantAddress(addr string) (sdk.AccAddress, error) {
+	if parsed, err := sdk.AccAddressFromHexUnsafe(addr); err == nil {
+		return parsed, nil
+	}
+	return sdk.AccAddressFromBech32(addr)
+}
+
+func feeGrantAddress(addr sdk.AccAddress) (string, error) {
+	return sdk.Bech32ifyAddressBytes(mocacmdconfig.Bech32PrefixAccAddr, addr)
+}
+
 // GrantBasicAllowance grants the grantee the BasicAllowance with specified amount and expiration.
 func (c *Client) GrantBasicAllowance(ctx context.Context, granteeAddr string, feeAllowanceAmount math.Int, expiration *time.Time, txOption gnfdsdktypes.TxOption) (string, error) {
-	grantee, err := sdk.AccAddressFromHexUnsafe(granteeAddr)
+	grantee, err := parseFeeGrantAddress(granteeAddr)
 	if err != nil {
 		return "", err
 	}
@@ -37,16 +49,32 @@ func (c *Client) GrantBasicAllowance(ctx context.Context, granteeAddr string, fe
 	if err != nil {
 		return "", err
 	}
+	msg.Granter, err = feeGrantAddress(c.defaultAccount.GetAddress())
+	if err != nil {
+		return "", err
+	}
+	msg.Grantee, err = feeGrantAddress(grantee)
+	if err != nil {
+		return "", err
+	}
 	return c.sendTxn(ctx, msg, &txOption)
 }
 
 // GrantAllowance provides a generic way to grant different types of allowance(BasicAllowance, PeriodicAllowance, AllowedMsgAllowance), the user needs to construct the desired type of allowance
 func (c *Client) GrantAllowance(ctx context.Context, granteeAddr string, allowance feegrant.FeeAllowanceI, txOption gnfdsdktypes.TxOption) (string, error) {
-	grantee, err := sdk.AccAddressFromHexUnsafe(granteeAddr)
+	grantee, err := parseFeeGrantAddress(granteeAddr)
 	if err != nil {
 		return "", err
 	}
 	msg, err := feegrant.NewMsgGrantAllowance(allowance, c.defaultAccount.GetAddress(), grantee)
+	if err != nil {
+		return "", err
+	}
+	msg.Granter, err = feeGrantAddress(c.defaultAccount.GetAddress())
+	if err != nil {
+		return "", err
+	}
+	msg.Grantee, err = feeGrantAddress(grantee)
 	if err != nil {
 		return "", err
 	}
@@ -59,11 +87,16 @@ func (c *Client) GrantAllowance(ctx context.Context, granteeAddr string, allowan
 
 // RevokeAllowance revokes allowance on a grantee by the granter
 func (c *Client) RevokeAllowance(ctx context.Context, granteeAddr string, txOption gnfdsdktypes.TxOption) (string, error) {
-	grantee, err := sdk.AccAddressFromHexUnsafe(granteeAddr)
+	grantee, err := parseFeeGrantAddress(granteeAddr)
 	if err != nil {
 		return "", err
 	}
 	msg := feegrant.NewMsgRevokeAllowance(c.defaultAccount.GetAddress(), grantee)
+	msg.Granter, err = feeGrantAddress(c.defaultAccount.GetAddress())
+	if err != nil {
+		return "", err
+	}
+	msg.Grantee, err = feeGrantAddress(grantee)
 	if err != nil {
 		return "", err
 	}
@@ -88,17 +121,17 @@ func (c *Client) QueryBasicAllowance(ctx context.Context, granterAddr, granteeAd
 }
 
 func (c *Client) QueryAllowance(ctx context.Context, granterAddr, granteeAddr string) (*feegrant.Grant, error) {
-	_, err := sdk.AccAddressFromHexUnsafe(granterAddr)
+	granter, err := parseFeeGrantAddress(granterAddr)
 	if err != nil {
 		return nil, err
 	}
-	_, err = sdk.AccAddressFromHexUnsafe(granteeAddr)
+	grantee, err := parseFeeGrantAddress(granteeAddr)
 	if err != nil {
 		return nil, err
 	}
 	req := &feegrant.QueryAllowanceRequest{
-		Granter: granterAddr,
-		Grantee: granteeAddr,
+		Granter: func() string { s, _ := feeGrantAddress(granter); return s }(),
+		Grantee: func() string { s, _ := feeGrantAddress(grantee); return s }(),
 	}
 	response, err := c.chainClient.FeegrantQueryClient.Allowance(ctx, req)
 	if err != nil {
@@ -108,12 +141,12 @@ func (c *Client) QueryAllowance(ctx context.Context, granterAddr, granteeAddr st
 }
 
 func (c *Client) QueryAllowances(ctx context.Context, granteeAddr string) ([]*feegrant.Grant, error) {
-	_, err := sdk.AccAddressFromHexUnsafe(granteeAddr)
+	grantee, err := parseFeeGrantAddress(granteeAddr)
 	if err != nil {
 		return nil, err
 	}
 	req := &feegrant.QueryAllowancesRequest{
-		Grantee: granteeAddr,
+		Grantee: func() string { s, _ := feeGrantAddress(grantee); return s }(),
 	}
 	response, err := c.chainClient.FeegrantQueryClient.Allowances(ctx, req)
 	if err != nil {
@@ -123,12 +156,12 @@ func (c *Client) QueryAllowances(ctx context.Context, granteeAddr string) ([]*fe
 }
 
 func (c *Client) QueryGranterAllowances(ctx context.Context, granterAddr string) ([]*feegrant.Grant, error) {
-	_, err := sdk.AccAddressFromHexUnsafe(granterAddr)
+	granter, err := parseFeeGrantAddress(granterAddr)
 	if err != nil {
 		return nil, err
 	}
 	req := &feegrant.QueryAllowancesByGranterRequest{
-		Granter: granterAddr,
+		Granter: func() string { s, _ := feeGrantAddress(granter); return s }(),
 	}
 	response, err := c.chainClient.FeegrantQueryClient.AllowancesByGranter(ctx, req)
 	if err != nil {

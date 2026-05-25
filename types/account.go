@@ -14,8 +14,9 @@ import (
 
 // Account indicates the user's identity information used for interaction with Moca.
 type Account struct {
-	name string
-	km   keys.KeyManager
+	name       string
+	km         keys.KeyManager
+	privateKey string
 }
 
 // TransferDetail includes the target address and amount for token transfer.
@@ -39,8 +40,9 @@ func NewAccountFromPrivateKey(name, privKey string) (*Account, error) {
 		return nil, err
 	}
 	return &Account{
-		name: name,
-		km:   km,
+		name:       name,
+		km:         km,
+		privateKey: privKey,
 	}, nil
 }
 
@@ -80,8 +82,9 @@ func NewAccount(name string) (*Account, string, error) {
 		return nil, "", err
 	}
 	return &Account{
-		name: name,
-		km:   km,
+		name:       name,
+		km:         km,
+		privateKey: hex.EncodeToString(privKey.Bytes()),
 	}, hex.EncodeToString(privKey.Bytes()), nil
 }
 
@@ -110,6 +113,11 @@ func NewBlsAccount(name string) (*Account, string, error) {
 // GetKeyManager - Get the key manager of the account.
 func (a *Account) GetKeyManager() keys.KeyManager {
 	return a.km
+}
+
+// GetPrivateKey returns the hex-encoded secp256k1 private key when available.
+func (a *Account) GetPrivateKey() string {
+	return a.privateKey
 }
 
 // GetAddress - Get the address of the account.

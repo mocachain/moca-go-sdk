@@ -6,21 +6,26 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
-	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/stretchr/testify/suite"
 )
 
 var (
-	Endpoint    = envOrDefault("MOCA_E2E_ENDPOINT", "http://localhost:26657")
-	EVMEndpoint = envOrDefault("MOCA_E2E_EVM_ENDPOINT", "http://localhost:8545")
-	ChainID     = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
-	LocalupDir  = resolveLocalupDir()
-	MocadPath   = resolveMocadPath()
+	ChainID      = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
+	LocalupDir   = resolveLocalupDir()
+	MocadPath    = resolveMocadPath()
+	Endpoint     = resolveEndpoint()
+	GRPCEndpoint = resolveGRPCEndpoint()
+	EVMEndpoint  = resolveEVMEndpoint()
 )
 
 func envOrDefault(key, defaultValue string) string {
@@ -28,6 +33,27 @@ func envOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func resolveEndpoint() string {
+	if value := os.Getenv("MOCA_E2E_ENDPOINT"); value != "" {
+		return value
+	}
+	return "http://localhost:26657"
+}
+
+func resolveEVMEndpoint() string {
+	if value := os.Getenv("MOCA_E2E_EVM_ENDPOINT"); value != "" {
+		return value
+	}
+	return "http://localhost:8545"
+}
+
+func resolveGRPCEndpoint() string {
+	if value := os.Getenv("MOCA_E2E_GRPC_ENDPOINT"); value != "" {
+		return value
+	}
+	return "localhost:19090"
 }
 
 func resolveLocalupDir() string {
@@ -97,10 +123,28 @@ func exportLocalPrivateKey(name, homeDir string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+func exportPresetPrivateKey(name string) (string, error) {
+	scriptPath := filepath.Clean(filepath.Join(LocalupDir, "..", "localup.sh"))
+	content, err := os.ReadFile(scriptPath)
+	if err != nil {
+		return "", fmt.Errorf("read localup preset keys failed: %w", err)
+	}
+
+	pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^%s_prikey=([0-9a-fA-F]+)$`, regexp.QuoteMeta(name)))
+	matches := pattern.FindStringSubmatch(string(content))
+	if len(matches) != 2 {
+		return "", fmt.Errorf("preset private key for %s not found in %s", name, scriptPath)
+	}
+	return matches[1], nil
+}
+
 func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
 	privateKey, err := exportLocalPrivateKey(name, homeDir)
 	if err != nil {
-		return nil, "", err
+		privateKey, err = exportPresetPrivateKey(name)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	account, err := types.NewAccountFromPrivateKey(name, privateKey)
@@ -121,11 +165,19 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) NewChallengeClient() {
+	challengerHome := filepath.Join(LocalupDir, "challenger0")
+	if _, err := os.Stat(challengerHome); err != nil {
+		s.T().Logf("challenge client skipped: %s not found", challengerHome)
+		return
+	}
+
 	challengeAcc, priKey, err := loadLocalAccount("challenger0", filepath.Join(LocalupDir, "challenger0"))
 	s.Require().NoError(err)
 	s.ChallengePrivateKey = priKey
 	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: challengeAcc,
+		GrpcAddress:    GRPCEndpoint,
+		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
 	})
 	s.Require().NoError(err)
 }
@@ -136,6 +188,8 @@ func (s *BaseSuite) SetupSuite() {
 	s.DefaultPrivateKey = priKey
 	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: account,
+		GrpcAddress:    GRPCEndpoint,
+		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
 	})
 	s.Require().NoError(err)
 	s.ClientContext = context.Background()

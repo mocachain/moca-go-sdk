@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 
@@ -12,11 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/mocachain/moca-go-sdk/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/bank"
 	paymentTypes "github.com/mocachain/moca/v2/x/payment/types"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IAccountClient - Client APIs for operating Moca accounts.
@@ -46,6 +47,9 @@ type IAccountClient interface {
 func (c *Client) SetDefaultAccount(account *types.Account) {
 	c.defaultAccount = account
 	c.chainClient.SetKeyManager(account.GetKeyManager())
+	if privateKey := account.GetPrivateKey(); privateKey != "" {
+		c.privateKey = privateKey
+	}
 }
 
 // GetDefaultAccount - Get the default account of the Client.
@@ -120,6 +124,12 @@ func (c *Client) GetAccount(ctx context.Context, address string) (authTypes.Acco
 //
 // - ret2: Return error when created failed, otherwise return nil.
 func (c *Client) CreatePaymentAccount(ctx context.Context, address string, txOption gnfdSdkTypes.TxOption) (string, error) {
+	if !txOption.FeeGranter.Empty() {
+		msg := &paymentTypes.MsgCreatePaymentAccount{
+			Creator: hex.EncodeToString(c.MustGetDefaultAccount().GetAddress()),
+		}
+		return c.sendTxn(ctx, msg, &txOption)
+	}
 	return c.sendCreatePaymentAccountEvmTxn(ctx)
 }
 
@@ -336,6 +346,16 @@ func (c *Client) createBankEvmSession(ctx context.Context, privKey string) (*ban
 	return session, nil
 }
 
+func bankMultiSendGasLimit(outputCount int) uint64 {
+	const (
+		baseGas      = 60000
+		perOutputGas = 30000
+		perCoinGas   = 10000
+		bufferGas    = 50000
+	)
+	return uint64(baseGas + outputCount*(perOutputGas+perCoinGas) + bufferGas)
+}
+
 // MultiTransfer - Transfer amoca from sender to multiple receivers.
 //
 // - ctx: Context variables for the current API call.
@@ -348,9 +368,8 @@ func (c *Client) createBankEvmSession(ctx context.Context, privKey string) (*ban
 //
 // - ret2: Return error if transferred failed, otherwise return nil.
 func (c *Client) MultiTransfer(ctx context.Context, details []types.TransferDetail, txOption gnfdSdkTypes.TxOption) (string, error) {
-	outputs := make([]bankTypes.Output, 0)
+	outputs := make([]bank.Output, 0, len(details))
 	denom := gnfdSdkTypes.Denom
-	sum := math.NewInt(0)
 	for i := 0; i < len(details); i++ {
 		_, err := sdk.AccAddressFromHexUnsafe(details[i].ToAddress)
 		if err != nil {
@@ -359,23 +378,24 @@ func (c *Client) MultiTransfer(ctx context.Context, details []types.TransferDeta
 		if details[i].Amount.IsNil() || details[i].Amount.IsNegative() {
 			return "", fmt.Errorf("transfer amount is not valid")
 		}
-		outputs = append(outputs, bankTypes.Output{
-			Address: details[i].ToAddress,
-			Coins:   []sdk.Coin{{Denom: denom, Amount: details[i].Amount}},
+		outputs = append(outputs, bank.Output{
+			ToAddress: common.HexToAddress(details[i].ToAddress),
+			Amount: []bank.Coin{{
+				Denom:  denom,
+				Amount: details[i].Amount.BigInt(),
+			}},
 		})
-		sum = sum.Add(details[i].Amount)
 	}
-	in := bankTypes.Input{
-		Address: c.MustGetDefaultAccount().GetAddress().String(),
-		Coins:   []sdk.Coin{{Denom: denom, Amount: sum}},
-	}
-	msg := &bankTypes.MsgMultiSend{
-		Inputs:  []bankTypes.Input{in},
-		Outputs: outputs,
-	}
-	tx, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &txOption)
+
+	session, err := c.createBankEvmSession(ctx, c.privateKey)
 	if err != nil {
 		return "", err
 	}
-	return tx.TxResponse.TxHash, nil
+	session.TransactOpts.GasLimit = bankMultiSendGasLimit(len(outputs))
+
+	txRsp, err := session.MultiSend(outputs)
+	if err != nil {
+		return "", err
+	}
+	return txRsp.Hash().String(), nil
 }

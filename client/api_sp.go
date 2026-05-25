@@ -9,12 +9,13 @@ import (
 
 	"github.com/0xPolygon/polygon-edge/bls"
 	"github.com/cosmos/cosmos-sdk/types/query"
+	"github.com/ethereum/go-ethereum/common"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
 	govTypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	precompileauthz "github.com/mocachain/moca/v2/x/evm/precompiles/authz"
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
@@ -267,7 +268,6 @@ func (c *Client) CreateStorageProvider(ctx context.Context, fundingAddr, sealAdd
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) GrantDepositForStorageProvider(ctx context.Context, spAddr string, depositAmount math.Int, opts types.GrantDepositForStorageProviderOptions) (string, error) {
-	granter := c.MustGetDefaultAccount()
 	govModuleAddress, err := c.GetModuleAccountByName(ctx, govTypes.ModuleName)
 	if err != nil {
 		return "", err
@@ -283,15 +283,58 @@ func (c *Client) GrantDepositForStorageProvider(ctx context.Context, spAddr stri
 		expiration := time.Now().Add(24 * time.Hour)
 		opts.Expiration = &expiration
 	}
-	msgGrant, err := authz.NewMsgGrant(granter.GetAddress(), govModuleAddress.GetAddress(), authorization, opts.Expiration)
+	txHash, err := c.sendGrantDepositForStorageProviderEvmTxn(ctx, govModuleAddress.GetAddress(), authorization, opts.Expiration)
 	if err != nil {
 		return "", err
 	}
-	resp, err := c.BroadcastTx(ctx, []sdk.Msg{msgGrant}, &opts.TxOpts)
+	return txHash, nil
+}
+
+func (c *Client) sendGrantDepositForStorageProviderEvmTxn(ctx context.Context, grantee sdk.AccAddress, authorization *spTypes.DepositAuthorization, expiration *time.Time) (string, error) {
+	session, err := c.createAuthzEvmSession(ctx, c.privateKey)
 	if err != nil {
 		return "", err
 	}
-	return resp.TxResponse.TxHash, nil
+
+	grantLimit := []precompileauthz.Coin{{
+		Denom:  authorization.MaxDeposit.Denom,
+		Amount: authorization.MaxDeposit.Amount.BigInt(),
+	}}
+
+	var expirationUnix int64
+	if expiration != nil {
+		expirationUnix = expiration.Unix()
+	}
+
+	tx, err := session.Grant(
+		common.BytesToAddress(grantee.Bytes()),
+		"spDeposit",
+		authorization.SpAddress,
+		grantLimit,
+		expirationUnix,
+	)
+	if err != nil {
+		return "", err
+	}
+	return tx.Hash().String(), nil
+}
+
+func (c *Client) createAuthzEvmSession(ctx context.Context, privKey string) (*precompileauthz.IAuthzSession, error) {
+	nonce, err := c.chainClient.GetNonce(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	chainID, err := c.evmClient.ChainID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainID, DefaultGasLimit, nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateAuthzSession(c.evmClient, *txOpts, precompileauthz.GetAddress().Hex())
 }
 
 // UpdateSpStoragePrice - Update the read price, storage price and free read quota for a particular storage provider. The sender must be the Storage provider's operator address, and SP must be STATUS_IN_SERVICE.

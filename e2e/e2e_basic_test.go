@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"cosmossdk.io/math"
+	types2 "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"
-	types2 "github.com/mocachain/moca/v2/sdk/types"
 )
 
 var privateKey = "xx"

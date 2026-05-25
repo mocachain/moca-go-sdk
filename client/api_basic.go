@@ -10,19 +10,28 @@ import (
 	"time"
 
 	"cosmossdk.io/errors"
+	protov2 "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"github.com/cometbft/cometbft/proto/tendermint/p2p"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/votepool"
+	sdkclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
+	clitx "github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/tx"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"google.golang.org/grpc"
+	txsigning "cosmossdk.io/x/tx/signing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gosdktypes "github.com/mocachain/moca-go-sdk/types"
+	mocacmdconfig "github.com/mocachain/moca/v2/cmd/config"
 	"github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
@@ -49,9 +58,9 @@ type IBasicClient interface {
 	WaitForNBlocks(ctx context.Context, n int64) error
 	WaitForNextBlock(ctx context.Context) error
 
-	SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxOption, opts ...grpc.CallOption) (*tx.SimulateResponse, error)
-	SimulateRawTx(ctx context.Context, txBytes []byte, opts ...grpc.CallOption) (*tx.SimulateResponse, error)
-	BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error)
+	SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxOption, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error)
+	SimulateRawTx(ctx context.Context, txBytes []byte, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error)
+	BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error)
 	BroadcastRawTx(ctx context.Context, txBytes []byte, sync bool) (*sdk.TxResponse, error)
 
 	BroadcastVote(ctx context.Context, vote votepool.Vote) error
@@ -124,13 +133,13 @@ func (c *Client) GetCommit(ctx context.Context, height int64) (*ctypes.ResultCom
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) BroadcastRawTx(ctx context.Context, txBytes []byte, sync bool) (*sdk.TxResponse, error) {
-	var mode tx.BroadcastMode
+	var mode txtypes.BroadcastMode
 	if sync {
-		mode = tx.BroadcastMode_BROADCAST_MODE_SYNC
+		mode = txtypes.BroadcastMode_BROADCAST_MODE_SYNC
 	} else {
-		mode = tx.BroadcastMode_BROADCAST_MODE_ASYNC
+		mode = txtypes.BroadcastMode_BROADCAST_MODE_ASYNC
 	}
-	broadcastTxResponse, err := c.chainClient.TxClient.BroadcastTx(ctx, &tx.BroadcastTxRequest{TxBytes: txBytes, Mode: mode})
+	broadcastTxResponse, err := c.chainClient.TxClient.BroadcastTx(ctx, &txtypes.BroadcastTxRequest{TxBytes: txBytes, Mode: mode})
 	if err != nil {
 		return nil, err
 	}
@@ -148,10 +157,10 @@ func (c *Client) BroadcastRawTx(ctx context.Context, txBytes []byte, sync bool) 
 // - ret1: The simulation result.
 //
 // - ret2: Return error when the request failed, otherwise return nil.
-func (c *Client) SimulateRawTx(ctx context.Context, txBytes []byte, opts ...grpc.CallOption) (*tx.SimulateResponse, error) {
+func (c *Client) SimulateRawTx(ctx context.Context, txBytes []byte, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error) {
 	simulateResponse, err := c.chainClient.TxClient.Simulate(
 		ctx,
-		&tx.SimulateRequest{
+		&txtypes.SimulateRequest{
 			TxBytes: txBytes,
 		},
 		opts...,
@@ -251,86 +260,83 @@ func (c *Client) WaitForNBlocks(ctx context.Context, n int64) error {
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) WaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	// return c.waitForTx(ctx, hash)
-	return c.waitForEvmTx(ctx, hash)
-}
-
-func (c *Client) waitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
 	for {
-		var (
-			txResponse *ctypes.ResultTx
-			err        error
-			waitTxCtx  context.Context
-			cancelFunc context.CancelFunc
-		)
+		txResponse, txErr := c.tryWaitForTx(ctx, hash)
+		if txErr == nil {
+			return txResponse, nil
+		}
+		if txErr != errTxNotFound {
+			return nil, txErr
+		}
 
-		// when websocket conn is used, use a short timeout context to achieve the retry mechanism
-		if c.useWebsocketConn {
-			waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
-			txResponse, err = c.chainClient.Tx(waitTxCtx, hash)
-			cancelFunc()
-		} else {
-			txResponse, err = c.chainClient.Tx(ctx, hash)
+		evmResponse, evmErr := c.tryWaitForEvmTx(ctx, hash)
+		if evmErr == nil {
+			return evmResponse, nil
 		}
-		if err != nil {
-			// Tx not found, wait for next block and try again
-			// If websocket conn is enabled, we also want to re-try the GetTx calls by having a timeout context
-			if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
+		if evmErr != errTxNotFound {
+			return nil, evmErr
+		}
 
-				err := c.WaitForNextBlock(ctx)
-				if err != nil {
-					return nil, errors.Wrap(err, "waiting for next block")
-				}
-				continue
-			}
-			return nil, errors.Wrapf(err, "fetching tx '%s'", hash)
+		if err := c.WaitForNextBlock(ctx); err != nil {
+			return nil, errors.Wrap(err, "waiting for next block")
 		}
-		// `nil` could mean the transaction is in the mempool, invalidated, or was not sent in the first place.
-		if txResponse == nil {
-			err := c.WaitForNextBlock(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "waiting for next block")
-			}
-			continue
-		}
-		// Tx found
-		return txResponse, nil
 	}
 }
 
-func (c *Client) waitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	for {
-		receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
-		if err != nil {
-			if err == ethereum.NotFound {
-				if err := c.WaitForNextBlock(ctx); err != nil {
-					return nil, errors.Wrap(err, "waiting for next block")
-				}
-				continue
-			}
-			return nil, err
-		}
+var errTxNotFound = fmt.Errorf("tx not found")
 
-		// `nil` could mean the transaction is in the mempool, invalidated, or was not sent in the first place.
-		if receipt == nil {
-			err := c.WaitForNextBlock(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "waiting for next block")
-			}
-			continue
-		}
+func (c *Client) tryWaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
+	var (
+		txResponse *ctypes.ResultTx
+		err        error
+		waitTxCtx  context.Context
+		cancelFunc context.CancelFunc
+	)
+	queryHash := strings.TrimPrefix(hash, "0x")
 
-		if receipt.Status != ethtypes.ReceiptStatusSuccessful {
-			return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
-		}
-
-		h, _ := hex.DecodeString(hash)
-		return &ctypes.ResultTx{
-			Hash:   h,
-			Height: receipt.BlockNumber.Int64(),
-			// todo: fill in the rest of the fields
-		}, nil
+	// when websocket conn is used, use a short timeout context to achieve the retry mechanism
+	if c.useWebsocketConn {
+		waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
+		txResponse, err = c.chainClient.Tx(waitTxCtx, queryHash)
+		cancelFunc()
+	} else {
+		txResponse, err = c.chainClient.Tx(ctx, queryHash)
 	}
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
+			return nil, errTxNotFound
+		}
+		return nil, errors.Wrapf(err, "fetching tx '%s'", hash)
+	}
+	if txResponse == nil {
+		return nil, errTxNotFound
+	}
+	return txResponse, nil
+}
+
+func (c *Client) tryWaitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
+	receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
+	if err != nil {
+		if err == ethereum.NotFound {
+			return nil, errTxNotFound
+		}
+		return nil, err
+	}
+
+	if receipt == nil {
+		return nil, errTxNotFound
+	}
+
+	if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
+	}
+
+	h, _ := hex.DecodeString(hash)
+	return &ctypes.ResultTx{
+		Hash:   h,
+		Height: receipt.BlockNumber.Int64(),
+		// todo: fill in the rest of the fields
+	}, nil
 }
 
 // BroadcastTx - Broadcast a transaction containing the provided message(s) to the chain.
@@ -346,7 +352,7 @@ func (c *Client) waitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultT
 // - ret1: transaction response, it can indicate both success and failed transaction.
 //
 // - ret2: Return error when the request failed, otherwise return nil.
-func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error) {
+func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
 	if len(msgs) == 0 {
 		return nil, fmt.Errorf("msg is not provided in the transaction")
 	}
@@ -357,12 +363,17 @@ func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.T
 			}
 		}
 	}
-	resp, err := c.chainClient.BroadcastTx(ctx, msgs, txOpt, opts...)
+	resp, err := c.broadcastTxWithMocaAddressCodec(ctx, msgs, txOpt, opts...)
 	if err != nil {
 		return nil, err
 	}
 	if resp.TxResponse.Code != 0 {
-		return resp, fmt.Errorf("the tx has failed with response code: %d, codespace:%s", resp.TxResponse.Code, resp.TxResponse.Codespace)
+		return resp, fmt.Errorf(
+			"the tx has failed with response code: %d, codespace:%s, raw_log:%s",
+			resp.TxResponse.Code,
+			resp.TxResponse.Codespace,
+			resp.TxResponse.RawLog,
+		)
 	}
 	return resp, nil
 }
@@ -380,8 +391,216 @@ func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.T
 // - ret1: The simulation result.
 //
 // - ret2: Return error when the request failed, otherwise return nil.
-func (c *Client) SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxOption, opts ...grpc.CallOption) (*tx.SimulateResponse, error) {
-	return c.chainClient.SimulateTx(ctx, msgs, &txOpt, opts...)
+func (c *Client) SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxOption, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error) {
+	return c.simulateTxWithMocaAddressCodec(ctx, msgs, &txOpt, opts...)
+}
+
+func (c *Client) newTxConfigWithMocaAddressCodec() (sdkclient.TxConfig, error) {
+	signingOptions := &txsigning.Options{
+		FileResolver: c.chainClient.GetCodec().InterfaceRegistry(),
+		AddressCodec: mocacmdconfig.NewMultiPrefixBech32AccCodec(),
+		CustomGetSigners: map[protoreflect.FullName]txsigning.GetSignersFunc{
+			protoreflect.FullName("moca.payment.MsgCreatePaymentAccount"): func(msg protov2.Message) ([][]byte, error) {
+				creatorField := msg.ProtoReflect().Descriptor().Fields().ByName("creator")
+				if creatorField == nil {
+					return nil, fmt.Errorf("creator field not found in %s", msg.ProtoReflect().Descriptor().FullName())
+				}
+				signer, err := sdk.AccAddressFromHexUnsafe(msg.ProtoReflect().Get(creatorField).String())
+				if err != nil {
+					return nil, err
+				}
+				return [][]byte{signer}, nil
+			},
+		},
+	}
+	return authtx.NewTxConfigWithOptions(c.chainClient.GetCodec(), authtx.ConfigOptions{
+		EnabledSignModes: []signing.SignMode{signing.SignMode_SIGN_MODE_EIP_712},
+		SigningOptions:   signingOptions,
+	})
+}
+
+func (c *Client) simulateTxWithMocaAddressCodec(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error) {
+	txConfig, err := c.newTxConfigWithMocaAddressCodec()
+	if err != nil {
+		return nil, err
+	}
+	txBuilder := txConfig.NewTxBuilder()
+	if err := c.chainClientConstructTx(ctx, msgs, txOpt, txBuilder); err != nil {
+		return nil, err
+	}
+	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	if err != nil {
+		return nil, err
+	}
+	return c.chainClient.TxClient.Simulate(ctx, &txtypes.SimulateRequest{TxBytes: txBytes}, opts...)
+}
+
+func (c *Client) broadcastTxWithMocaAddressCodec(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
+	txConfig, err := c.newTxConfigWithMocaAddressCodec()
+	if err != nil {
+		return nil, err
+	}
+	txBuilder := txConfig.NewTxBuilder()
+	if err := c.chainClientConstructTxWithGasInfo(ctx, msgs, txOpt, txConfig, txBuilder, opts...); err != nil {
+		return nil, err
+	}
+	txSignedBytes, err := c.chainClientSignTx(ctx, txConfig, txBuilder, txOpt)
+	if err != nil {
+		return nil, err
+	}
+
+	mode := txtypes.BroadcastMode_BROADCAST_MODE_SYNC
+	if txOpt != nil && txOpt.Mode != nil {
+		mode = *txOpt.Mode
+	}
+
+	return c.chainClient.TxClient.BroadcastTx(ctx, &txtypes.BroadcastTxRequest{
+		Mode:    mode,
+		TxBytes: txSignedBytes,
+	}, opts...)
+}
+
+func (c *Client) chainClientSignTx(ctx context.Context, txConfig sdkclient.TxConfig, txBuilder sdkclient.TxBuilder, txOpt *types.TxOption) ([]byte, error) {
+	km, err := c.chainClient.GetKeyManager()
+	if err != nil {
+		return nil, err
+	}
+	if txOpt != nil && txOpt.OverrideKeyManager != nil {
+		km = *txOpt.OverrideKeyManager
+	}
+
+	account, err := c.chainClient.GetAccountByAddr(ctx, km.GetAddr())
+	if err != nil {
+		return nil, err
+	}
+	nonce := account.GetSequence()
+	if txOpt != nil && txOpt.Nonce != 0 {
+		nonce = txOpt.Nonce
+	}
+
+	chainID, err := c.chainClient.GetChainID()
+	if err != nil {
+		return nil, err
+	}
+	signerData := xauthsigning.SignerData{
+		ChainID:       chainID,
+		AccountNumber: account.GetAccountNumber(),
+		Sequence:      nonce,
+	}
+	sig, err := clitx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_EIP_712, signerData, txBuilder, km, txConfig, nonce)
+	if err != nil {
+		return nil, err
+	}
+	if err := txBuilder.SetSignatures(sig); err != nil {
+		return nil, err
+	}
+	return txConfig.TxEncoder()(txBuilder.GetTx())
+}
+
+func (c *Client) chainClientSetSignerInfo(ctx context.Context, txBuilder sdkclient.TxBuilder, txOpt *types.TxOption) error {
+	km, err := c.chainClient.GetKeyManager()
+	if err != nil {
+		return err
+	}
+	if txOpt != nil && txOpt.OverrideKeyManager != nil {
+		km = *txOpt.OverrideKeyManager
+	}
+
+	account, err := c.chainClient.GetAccountByAddr(ctx, km.GetAddr())
+	if err != nil {
+		return err
+	}
+	nonce := account.GetSequence()
+	if txOpt != nil && txOpt.Nonce != 0 {
+		nonce = txOpt.Nonce
+	}
+
+	return txBuilder.SetSignatures(signing.SignatureV2{
+		PubKey: km.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode: signing.SignMode_SIGN_MODE_EIP_712,
+		},
+		Sequence: nonce,
+	})
+}
+
+func (c *Client) chainClientConstructTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, txBuilder sdkclient.TxBuilder) error {
+	for _, msg := range msgs {
+		if validateBasic, ok := msg.(sdk.HasValidateBasic); ok {
+			if err := validateBasic.ValidateBasic(); err != nil {
+				return err
+			}
+		}
+	}
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return err
+	}
+	if txOpt != nil {
+		if txOpt.Memo != "" {
+			txBuilder.SetMemo(txOpt.Memo)
+		}
+		if !txOpt.FeePayer.Empty() {
+			txBuilder.SetFeePayer(txOpt.FeePayer)
+		}
+		if !txOpt.FeeGranter.Empty() {
+			txBuilder.SetFeeGranter(txOpt.FeeGranter)
+		}
+	}
+	return c.chainClientSetSignerInfo(ctx, txBuilder, txOpt)
+}
+
+func (c *Client) chainClientConstructTxWithGasInfo(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, txConfig sdkclient.TxConfig, txBuilder sdkclient.TxBuilder, opts ...grpc.CallOption) error {
+	if err := c.chainClientConstructTx(ctx, msgs, txOpt, txBuilder); err != nil {
+		return err
+	}
+	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	if err != nil {
+		return err
+	}
+
+	if txOpt != nil && txOpt.NoSimulate {
+		isFeeAmtZero, err := isZeroFeeAmount(txOpt.FeeAmount)
+		if err != nil {
+			return err
+		}
+		if txOpt.GasLimit == 0 || isFeeAmtZero {
+			return types.ErrGasInfoNotProvided
+		}
+		txBuilder.SetGasLimit(txOpt.GasLimit)
+		txBuilder.SetFeeAmount(txOpt.FeeAmount)
+		return nil
+	}
+
+	simulateResponse, err := c.chainClient.TxClient.Simulate(ctx, &txtypes.SimulateRequest{TxBytes: txBytes}, opts...)
+	if err != nil {
+		return err
+	}
+	gasLimit := simulateResponse.GasInfo.GetGasUsed()
+	gasPrice, err := sdk.ParseCoinNormalized(simulateResponse.GasInfo.GetMinGasPrice())
+	if err != nil {
+		return err
+	}
+	if gasPrice.IsNil() || gasPrice.IsZero() {
+		return types.ErrSimulatedGasPrice
+	}
+	txBuilder.SetGasLimit(gasLimit)
+	txBuilder.SetFeeAmount(sdk.NewCoins(
+		sdk.NewCoin(gasPrice.Denom, gasPrice.Amount.MulRaw(int64(gasLimit))),
+	))
+	return nil
+}
+
+func isZeroFeeAmount(feeAmount sdk.Coins) (bool, error) {
+	if len(feeAmount) == 0 {
+		return true, nil
+	}
+	if len(feeAmount) != 1 {
+		return false, types.ErrFeeAmountNotValid
+	}
+	if feeAmount[0].Amount.IsNil() {
+		return false, types.ErrFeeAmountNotValid
+	}
+	return feeAmount[0].IsZero(), nil
 }
 
 // GetSyncing - Retrieve the syncing status of the node.

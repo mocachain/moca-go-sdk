@@ -4,18 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 	"testing"
 	"time"
+	"net/url"
 
 	"cosmossdk.io/math"
-	"github.com/mocachain/moca-go-sdk/client"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 	mcSDkTypes "github.com/mocachain/moca/v2/sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	mocadTypes "github.com/mocachain/moca/v2/types"
@@ -24,6 +22,10 @@ import (
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/stretchr/testify/suite"
+	"github.com/mocachain/moca-go-sdk/client"
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 )
 
 type StorageTestSuite struct {
@@ -42,10 +44,51 @@ func (s *StorageTestSuite) SetupSuite() {
 			break
 		}
 	}
+
+	s.requireStorageAdminAvailable()
 }
 
 func TestStorageTestSuite(t *testing.T) {
 	suite.Run(t, new(StorageTestSuite))
+}
+
+func (s *StorageTestSuite) requireStorageAdminAvailable() {
+	if s.PrimarySP.Endpoint == "" {
+		s.T().Skip("storage tests require a primary SP endpoint")
+		return
+	}
+
+	adminAddr, err := storageAdminAddr(s.PrimarySP.Endpoint)
+	if err != nil {
+		s.T().Skipf("storage tests require a resolvable SP admin endpoint: %v", err)
+		return
+	}
+
+	conn, err := net.DialTimeout("tcp", adminAddr, 2*time.Second)
+	if err != nil {
+		s.T().Skipf("storage tests require reachable SP admin endpoint %s: %v", adminAddr, err)
+		return
+	}
+	_ = conn.Close()
+}
+
+func storageAdminAddr(endpoint string) (string, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", err
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("empty host in endpoint %q", endpoint)
+	}
+
+	switch host {
+	case "127.0.0.1", "localhost":
+		return "127.0.0.1:9033", nil
+	default:
+		return net.JoinHostPort(host, "9033"), nil
+	}
 }
 
 func (s *StorageTestSuite) Test_Bucket() {

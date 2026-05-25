@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/mocachain/moca/v2/x/evm/precompiles/authz"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/bank"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/payment"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
@@ -79,6 +80,21 @@ func CreatePaymentSession(client *ethclient.Client, txOpts bind.TransactOpts, co
 		return nil, err
 	}
 	session := &payment.IPaymentSession{
+		Contract: contract,
+		CallOpts: bind.CallOpts{
+			Pending: false,
+		},
+		TransactOpts: txOpts,
+	}
+	return session, nil
+}
+
+func CreateAuthzSession(client *ethclient.Client, txOpts bind.TransactOpts, contractAddress string) (*authz.IAuthzSession, error) {
+	contract, err := authz.NewIAuthz(common.HexToAddress(contractAddress), client)
+	if err != nil {
+		return nil, err
+	}
+	session := &authz.IAuthzSession{
 		Contract: contract,
 		CallOpts: bind.CallOpts{
 			Pending: false,

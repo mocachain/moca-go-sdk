@@ -12,13 +12,13 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/payment"
 	paymentTypes "github.com/mocachain/moca/v2/x/payment/types"
 	"github.com/rs/zerolog/log"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IPaymentClient - Client APIs for operating and querying Moca payment accounts and stream records.
@@ -156,11 +156,23 @@ func (c *Client) DisableRefund(ctx context.Context, paymentAddress string, txOpt
 		Owner: c.MustGetDefaultAccount().GetAddress().String(),
 		Addr:  accAddress.String(),
 	}
-	tx, err := c.BroadcastTx(ctx, []sdk.Msg{msgDisableRefund}, &txOption)
+	tx, err := c.sendDisableRefundEvmTxn(ctx, msgDisableRefund)
 	if err != nil {
 		return "", err
 	}
-	return tx.TxResponse.TxHash, nil
+	return tx, nil
+}
+
+func (c *Client) sendDisableRefundEvmTxn(ctx context.Context, msg *paymentTypes.MsgDisableRefund) (string, error) {
+	session, err := c.createPaymentEvmSession(ctx, c.privateKey)
+	if err != nil {
+		return "", err
+	}
+	txRsp, err := session.DisableRefund(msg.Addr)
+	if err != nil {
+		return "", err
+	}
+	return txRsp.Hash().String(), nil
 }
 
 // ListUserPaymentAccounts - List payment info by a user address.
