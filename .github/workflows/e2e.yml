@@ -65,6 +65,8 @@ jobs:
         run: |
           go mod edit -replace github.com/mocachain/moca/v2=../moca
           go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
+          go_cache="$(go env GOPATH)/pkg/mod/cache/vcs"
+          rm -rf "${go_cache}"
           go mod download
       - name: Install compatible contract tools
         run: |
@@ -86,6 +88,11 @@ jobs:
           git clone https://github.com/mocachain/moca-storage-provider.git ../moca-storage-provider
           cd ../moca-storage-provider
           git checkout ${{ env.MocaStorageProviderTag }}
+          go mod edit -replace github.com/mocachain/moca/v2=../moca
+          go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
+          go_cache="$(go env GOPATH)/pkg/mod/cache/vcs"
+          rm -rf "${go_cache}"
+          go mod download
           make install-tools
           make build
           cd ../moca-go-sdk
