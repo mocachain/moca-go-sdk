@@ -117,6 +117,26 @@ jobs:
         run: |
           cd ../moca
           bash ./deployment/localup/localup.sh all 1 8
+          echo "=== wait for moca gRPC ==="
+          for i in {1..60}; do
+            if timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/19090'; then
+              echo "moca gRPC is ready on 127.0.0.1:19090"
+              break
+            fi
+            if [ "${i}" -eq 60 ]; then
+              echo "moca gRPC did not become ready on 127.0.0.1:19090"
+              echo "=== mocad process list ==="
+              ps -ef | grep '[m]ocad' || true
+              echo "=== listening ports ==="
+              ss -ltnp || true
+              echo "=== validator0 gRPC config ==="
+              grep -n -A 8 -B 4 'Address defines the gRPC server address' ./deployment/localup/.local/validator0/config/app.toml || true
+              echo "=== validator0 node.log ==="
+              cat ./deployment/localup/.local/validator0/logs/node.log || true
+              exit 1
+            fi
+            sleep 2
+          done
           bash ./deployment/localup/localup.sh export_sps 1 8
           cp ./deployment/localup/.local/sp_export.json ./sp.json
           cat sp.json
@@ -173,12 +193,17 @@ jobs:
         run: |
           export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
           export GOCACHE="${RUNNER_TEMP}/go-build"
+          echo "=== e2e network preflight ==="
+          ps -ef | grep '[m]ocad' || true
+          ss -ltnp | grep -E '(:19090|:26657|:8545)' || true
           set +e
           make e2e_test
           exit_status_command=$?
           if [ $exit_status_command -eq 0 ]; then
             echo "make e2e_test successful."
           else
+            echo "=== validator0 node.log ==="
+            cat ../moca/deployment/localup/.local/validator0/logs/node.log || true
             cd ../moca-storage-provider
             cat ./deployment/localup/local_env/sp0/log.txt
             cat ./deployment/localup/local_env/sp1/log.txt
