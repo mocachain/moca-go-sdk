@@ -12,7 +12,7 @@ on:
 
 env:
   MocaTag: 5666254d3403567090b7be993ac73a463d8e5a72
-  MocaCommonTag: feat/evmos_replace
+  MocaCommonTag: main
 
 jobs:
   gosec:
