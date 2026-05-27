@@ -14,7 +14,7 @@ on:
 env:
   MocaTag: main
   MocaCommonTag: main
-  MocaStorageProviderTag: main
+  MocaStorageProviderTag: fix/update-moca-main-deps
   GOPRIVATE: github.com/mocachain
   MYSQL_USER: root
   MYSQL_PASSWORD: root
