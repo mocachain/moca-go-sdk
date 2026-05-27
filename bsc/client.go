@@ -85,7 +85,7 @@ func New(rpcURL string, env bsctypes.Environment, option Option) (IClient, error
 	case bsctypes.OpBNBMainnet:
 		jsonStr = common.OpBNBMainnet
 	default:
-		return nil, fmt.Errorf("invalid environment: %v", env)
+		return nil, fmt.Errorf("invalid environment: %s", env)
 	}
 
 	err = json.Unmarshal([]byte(jsonStr), &deployment)

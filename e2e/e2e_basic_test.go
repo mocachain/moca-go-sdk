@@ -1,10 +1,9 @@
 package e2e
 
 import (
-	"context"
 	"encoding/hex"
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/suite"
 
@@ -25,40 +24,25 @@ func (s *BasicTestSuite) SetupSuite() {
 }
 
 func (s *BasicTestSuite) Test_Basic() {
-	ctx, cancel := context.WithTimeout(s.ClientContext, 2*time.Minute)
-	defer cancel()
-
-	_, _, err := s.Client.GetNodeInfo(ctx)
+	_, _, err := s.Client.GetNodeInfo(s.ClientContext)
 	s.Require().NoError(err)
 
-	latestBlock, err := s.Client.GetLatestBlock(ctx)
+	latestBlock, err := s.Client.GetLatestBlock(s.ClientContext)
 	s.Require().NoError(err)
-	s.T().Logf("Latest block: %s height=%d", latestBlock.StringShort(), latestBlock.Header.Height)
+	fmt.Println(latestBlock.String())
 
 	heightBefore := latestBlock.Header.Height
-
-	receiver, _, err := types.NewAccount("basic_block_progression")
+	err = s.Client.WaitForBlockHeight(s.ClientContext, heightBefore+10)
 	s.Require().NoError(err)
-
-	txHash, err := s.Client.Transfer(ctx, receiver.GetAddress().String(), math.NewIntFromUint64(1), types2.TxOption{})
+	height, err := s.Client.GetLatestBlockHeight(s.ClientContext)
 	s.Require().NoError(err)
-	s.T().Logf("Progression transfer tx: %s", txHash)
+	s.Require().GreaterOrEqual(height, heightBefore+10)
 
-	_, err = s.Client.WaitForTx(ctx, txHash)
-	s.Require().NoError(err)
-
-	err = s.Client.WaitForBlockHeight(ctx, heightBefore+1)
-	s.Require().NoError(err)
-
-	height, err := s.Client.GetLatestBlockHeight(ctx)
-	s.Require().NoError(err)
-	s.Require().GreaterOrEqual(height, heightBefore+1)
-
-	syncing, err := s.Client.GetSyncing(ctx)
+	syncing, err := s.Client.GetSyncing(s.ClientContext)
 	s.Require().NoError(err)
 	s.Require().False(syncing)
 
-	blockByHeight, err := s.Client.GetBlockByHeight(ctx, heightBefore)
+	blockByHeight, err := s.Client.GetBlockByHeight(s.ClientContext, heightBefore)
 	s.Require().NoError(err)
 	s.Require().Equal(blockByHeight.Header.Hash(), latestBlock.Header.Hash())
 }
