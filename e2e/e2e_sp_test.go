@@ -56,8 +56,6 @@ func (s *SPTestSuite) SetupSuite() {
 }
 
 func (s *SPTestSuite) Test_CreateStorageProvider() {
-	s.T().Skip("gov submit proposal cosmos tx path is incompatible with current remote moca main signer handling; tracked separately")
-
 	txHash, err := s.Client.Transfer(s.ClientContext, s.FundingAcc.GetAddress().String(), math.NewIntWithDecimal(10001, types2.DecimalMOCA), types2.TxOption{})
 	s.Require().NoError(err)
 	_, err = s.Client.WaitForTx(s.ClientContext, txHash)

@@ -104,7 +104,7 @@ The **payment.go** includes the payment related functions to manage payment acco
 
 The **permission.go** includes the permission related functions to manage resources(bucket, object, group) policy.
 
-The cross-chain governance and query helpers were removed together with the crosschain module in `moca/v2` main. Legacy cross-chain examples are retained only as placeholders that now return an unsupported error.
+The **crosschain.go** includes the cross chain related functions to transfer or mirror resource to BSC.
 
 #### Config Examples
 

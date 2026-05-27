@@ -12,10 +12,10 @@ on:
       - develop
 
 env:
-  MocaTag: main
-  MocaCommonTag: main
-  MocaStorageProviderTag: main
+  MocaTag: v1.6.0
+  MocaStorageProviderTag: feat-get-recommended-vgf
   GOPRIVATE: github.com/mocachain
+  GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
   MYSQL_USER: root
   MYSQL_PASSWORD: root
   MYSQL_ROOT_PASSWORD: root
@@ -51,33 +51,18 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Checkout dependency repos
-        run: |
-          git clone https://github.com/mocachain/moca.git ../moca
-          cd ../moca
-          git checkout ${{ env.MocaTag }}
-          cd ../moca-go-sdk
-          git clone https://github.com/mocachain/moca-common.git ../moca-common
-          cd ../moca-common
-          git checkout ${{ env.MocaCommonTag }}
-          cd ../moca-go-sdk
-      - name: Wire local dependency graph
-        run: |
-          go mod edit -replace github.com/mocachain/moca/v2=../moca
-          go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
-          go mod download
-      - name: Install compatible contract tools
-        run: |
-          GOTOOLCHAIN=go1.23.11 go install golang.org/x/tools/cmd/stringer@v0.30.0
-          GOTOOLCHAIN=go1.23.11 go install github.com/go-bindata/go-bindata/v3/go-bindata@v3.1.3
-          GOTOOLCHAIN=go1.23.11 go install github.com/fjl/gencodec@latest
-          GOTOOLCHAIN=go1.23.11 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
-          GOTOOLCHAIN=go1.23.11 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+      - name: Setup GitHub Token
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
 
       # Build Moca
       - name: Build Moca
         run: |
+          git clone https://github.com/mocachain/moca.git ../moca
           cd ../moca
+          git checkout ${{ env.MocaTag }}
+          go install github.com/bufbuild/buf/cmd/buf@v1.28.0
+          make tools
+          make proto-gen
           make build
           cd ..
       # Build Moca-SP
@@ -99,36 +84,30 @@ jobs:
         run: |
           cd ../moca
           bash ./deployment/localup/localup.sh all 1 8
-          bash ./deployment/localup/localup.sh export_sps 1 8
-          cp ./deployment/localup/.local/sp_export.json ./sp.json
+          bash ./deployment/localup/localup.sh export_sps 1 8 > sp.json
           cat sp.json
           cd ../moca-go-sdk
       # Run Moca-SP
       - name: Run Moca-SPs
         run: |
           cd ../moca-storage-provider
-          sed -i 's/^SP_NUM=.*/SP_NUM=2/' deployment/localup/env.info
           bash ./deployment/localup/localup.sh --generate $GITHUB_WORKSPACE/../moca/sp.json ${{ env.MYSQL_USER }} ${{ env.MYSQL_PASSWORD }} ${{ env.MYSQL_IP }}:${{ env.MYSQL_PORT }}
           bash ./deployment/localup/localup.sh --reset
           bash ./deployment/localup/localup.sh --start
           sleep 60
-          for sp_dir in deployment/localup/local_env/sp*; do
-            [ -d "${sp_dir}" ] || continue
-            sp_name=$(basename "${sp_dir}")
-            sp_index="${sp_name#sp}"
-            sp_bin="${sp_dir}/moca-sp${sp_index}"
-            sp_config="${sp_dir}/config.toml"
-            if [ -x "${sp_bin}" ] && [ -f "${sp_config}" ]; then
-              "${sp_bin}" update.quota --quota 5000000000 -c "${sp_config}"
-            fi
-          done
-          ps -ef | grep moca-sp | wc -l
-          tail -n 1000 deployment/localup/local_env/sp0/log.txt
+          ./deployment/localup/local_env/sp0/gnfd-sp0 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp0/config.toml
+          ./deployment/localup/local_env/sp1/gnfd-sp1 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp1/config.toml
+          ./deployment/localup/local_env/sp2/gnfd-sp2 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp2/config.toml
+          ./deployment/localup/local_env/sp3/gnfd-sp3 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp3/config.toml
+          ./deployment/localup/local_env/sp4/gnfd-sp4 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp4/config.toml
+          ./deployment/localup/local_env/sp5/gnfd-sp5 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp5/config.toml
+          ./deployment/localup/local_env/sp6/gnfd-sp6 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp6/config.toml
+          ./deployment/localup/local_env/sp7/gnfd-sp7 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp7/config.toml
+          ps -ef | grep gnfd-sp | wc -l
+          tail -n 1000 deployment/localup/local_env/sp0/gnfd-sp.log
           cd ../moca-go-sdk
       # Run E2E Test
       - name: start e2e
-        env:
-          MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/../moca/deployment/localup/.local
         run: |
           set +e
           make e2e_test

@@ -22,16 +22,15 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
-	hashlib "github.com/mocachain/moca-common/go/hash"
-	httplib "github.com/mocachain/moca-common/go/http"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 	sdkclient "github.com/mocachain/moca/v2/sdk/client"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	types2 "github.com/mocachain/moca/v2/x/virtualgroup/types"
+	hashlib "github.com/mocachain/moca-common/go/hash"
+	httplib "github.com/mocachain/moca-common/go/http"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IClient - Declare all Moca SDK Client APIs, including APIs for interacting with Moca Blockchain and SPs.
@@ -88,8 +87,6 @@ type Client struct {
 
 // Option - Configurations for providing optional parameters for the Moca SDK Client.
 type Option struct {
-	// GrpcAddress is the blockchain node gRPC address used by query and tx service clients.
-	GrpcAddress string
 	// GrpcDialOption is the list of gRPC dial options used to configure the connection to the blockchain node.
 	GrpcDialOption grpc.DialOption
 	// DefaultAccount is the default account of Client.
@@ -170,18 +167,11 @@ func New(chainID string, endpoint, evmEndpoint, privateKey string, option Option
 		cc  *sdkclient.MocaClient
 		err error
 	)
-	clientOptions := make([]sdkclient.MocaClientOption, 0, 2)
-	if option.GrpcAddress != "" {
-		dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		if option.GrpcDialOption != nil {
-			dialOptions = append(dialOptions, option.GrpcDialOption)
-		}
-		clientOptions = append(clientOptions, sdkclient.WithGrpcConnectionAndDialOption(option.GrpcAddress, dialOptions...))
-	}
 	if option.UseWebSocketConn {
-		clientOptions = append(clientOptions, sdkclient.WithWebSocketClient())
+		cc, err = sdkclient.NewMocaClient(endpoint, evmEndpoint, chainID, sdkclient.WithWebSocketClient())
+	} else {
+		cc, err = sdkclient.NewMocaClient(endpoint, evmEndpoint, chainID)
 	}
-	cc, err = sdkclient.NewMocaClient(endpoint, evmEndpoint, chainID, clientOptions...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,30 +1,26 @@
 package basesuite
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/mocachain/moca/v2/sdk/keys"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
-	"github.com/stretchr/testify/suite"
 )
 
 var (
-	ChainID      = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
-	LocalupDir   = resolveLocalupDir()
-	MocadPath    = resolveMocadPath()
-	Endpoint     = resolveEndpoint()
-	GRPCEndpoint = resolveGRPCEndpoint()
-	EVMEndpoint  = resolveEVMEndpoint()
+	Endpoint    = envOrDefault("MOCA_E2E_ENDPOINT", "http://localhost:26657")
+	EVMEndpoint = envOrDefault("MOCA_E2E_EVM_ENDPOINT", "http://localhost:8545")
+	ChainID     = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
+	LocalupDir  = envOrDefault("MOCA_E2E_LOCALUP_DIR", "../../moca/deployment/localup/.local")
 )
 
 func envOrDefault(key, defaultValue string) string {
@@ -34,141 +30,63 @@ func envOrDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
-func resolveEndpoint() string {
-	if value := os.Getenv("MOCA_E2E_ENDPOINT"); value != "" {
-		return value
+func ParseMnemonicFromFile(fileName string) string {
+	fileName = filepath.Clean(fileName)
+	file, err := os.Open(fileName)
+	if err != nil {
+		panic(err)
 	}
-	return "http://localhost:26657"
-}
+	// #nosec
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(file)
 
-func resolveEVMEndpoint() string {
-	if value := os.Getenv("MOCA_E2E_EVM_ENDPOINT"); value != "" {
-		return value
-	}
-	return "http://localhost:8545"
-}
-
-func resolveGRPCEndpoint() string {
-	if value := os.Getenv("MOCA_E2E_GRPC_ENDPOINT"); value != "" {
-		return value
-	}
-	return "localhost:19090"
-}
-
-func resolveLocalupDir() string {
-	if value := os.Getenv("MOCA_E2E_LOCALUP_DIR"); value != "" {
-		return value
-	}
-
-	candidates := []string{
-		"../moca/deployment/localup/.local",
-		"../../moca/deployment/localup/.local",
-		"../../../moca/deployment/localup/.local",
-		"../../../../moca/deployment/localup/.local",
-	}
-
-	for _, candidate := range candidates {
-		cleaned := filepath.Clean(candidate)
-		if _, err := os.Stat(cleaned); err == nil {
-			return cleaned
+	scanner := bufio.NewScanner(file)
+	var line string
+	for scanner.Scan() {
+		if scanner.Text() != "" {
+			line = scanner.Text()
 		}
 	}
-
-	// Fall back to the CI sibling checkout layout.
-	return filepath.Clean("../../../moca/deployment/localup/.local")
-}
-
-func resolveMocadPath() string {
-	if value := os.Getenv("MOCA_E2E_MOCAD"); value != "" {
-		return value
-	}
-
-	candidates := []string{
-		filepath.Join(LocalupDir, "..", "..", "..", "build", "mocad"),
-		"../moca/build/mocad",
-		"../../moca/build/mocad",
-		"../../../moca/build/mocad",
-		"../../../../moca/build/mocad",
-	}
-
-	for _, candidate := range candidates {
-		cleaned := filepath.Clean(candidate)
-		if info, err := os.Stat(cleaned); err == nil && !info.IsDir() {
-			return cleaned
-		}
-	}
-
-	return filepath.Clean(filepath.Join(LocalupDir, "..", "..", "..", "build", "mocad"))
-}
-
-func exportLocalPrivateKey(name, homeDir string) (string, error) {
-	cmd := exec.Command(
-		MocadPath,
-		"keys",
-		"export",
-		name,
-		"--unarmored-hex",
-		"--unsafe",
-		"--keyring-backend",
-		"test",
-		"--home",
-		filepath.Clean(homeDir),
-	)
-	cmd.Stdin = strings.NewReader("y\n")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("export private key for %s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
-	privateKey, err := exportLocalPrivateKey(name, homeDir)
-	if err != nil {
-		return nil, "", err
-	}
-
-	account, err := types.NewAccountFromPrivateKey(name, privateKey)
-	if err != nil {
-		return nil, "", err
-	}
-	return account, privateKey, nil
+	return line
 }
 
 type BaseSuite struct {
 	suite.Suite
-	DefaultAccount    *types.Account
-	DefaultPrivateKey string
-	Client            client.IClient
-	ClientContext     context.Context
-	ChallengeClient   client.IClient
+	DefaultAccount  *types.Account
+	Client          client.IClient
+	ClientContext   context.Context
+	ChallengeClient client.IClient
+}
+
+// ParseValidatorMnemonic read the validator mnemonic from file
+func ParseValidatorMnemonic(i int) string {
+	return ParseMnemonicFromFile(filepath.Join(LocalupDir, fmt.Sprintf("validator%d/info", i)))
 }
 
 func (s *BaseSuite) NewChallengeClient() {
-	challengerHome := filepath.Join(LocalupDir, "challenger0")
-	if _, err := os.Stat(challengerHome); err != nil {
-		s.T().Logf("challenge client skipped: %s not found", challengerHome)
-		return
-	}
-
-	challengeAcc, priKey, err := loadLocalAccount("challenger0", filepath.Join(LocalupDir, "challenger0"))
+	mnemonic := ParseMnemonicFromFile(filepath.Join(LocalupDir, "challenger0/challenger_info"))
+	challengeAcc, err := types.NewAccountFromMnemonic("challenge_account", mnemonic)
+	s.Require().NoError(err)
+	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
 	s.Require().NoError(err)
 	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: challengeAcc,
-		GrpcAddress:    GRPCEndpoint,
-		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
 	})
 	s.Require().NoError(err)
 }
 
 func (s *BaseSuite) SetupSuite() {
-	account, priKey, err := loadLocalAccount("validator0", filepath.Join(LocalupDir, "validator0"))
+	mnemonic := ParseValidatorMnemonic(0)
+	account, err := types.NewAccountFromMnemonic("test", mnemonic)
 	s.Require().NoError(err)
-	s.DefaultPrivateKey = priKey
+	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
+	s.Require().NoError(err)
 	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: account,
-		GrpcAddress:    GRPCEndpoint,
-		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
 	})
 	s.Require().NoError(err)
 	s.ClientContext = context.Background()

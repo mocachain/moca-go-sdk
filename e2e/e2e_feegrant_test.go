@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	types2 "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
@@ -67,39 +65,20 @@ func (s *FeeGrantTestSuite) Test_FeeGrant() {
 	granteeBalanceBefore, err := cli.GetAccountBalance(ctx, granteeAddr)
 	s.Require().NoError(err)
 
-	// sanity check: grantee can send a normal Cosmos tx before feegrant path
-	cli.SetDefaultAccount(grantee)
-	sendMsg := banktypes.NewMsgSend(
-		grantee.GetAddress(),
-		granter.GetAddress(),
-		sdk.NewCoins(sdk.NewCoin(types2.Denom, math.NewInt(1))),
-	)
-	sendResp, err := cli.BroadcastTx(ctx, []sdk.Msg{sendMsg}, &types2.TxOption{})
-	s.Require().NoError(err)
-	_, err = cli.WaitForTx(ctx, sendResp.TxResponse.TxHash)
-	s.Require().NoError(err)
-	granteeBalanceAfterSanitySend, err := cli.GetAccountBalance(ctx, granteeAddr)
-	s.Require().NoError(err)
-	s.Require().True(granteeBalanceAfterSanitySend.Amount.LT(granteeBalanceBefore.Amount.Sub(math.NewInt(1))))
-
 	// grantee makes a tx and costs the fee provided by granter
-	feeGrantSendMsg := banktypes.NewMsgSend(
-		grantee.GetAddress(),
-		granter.GetAddress(),
-		sdk.NewCoins(sdk.NewCoin(types2.Denom, math.NewInt(1))),
-	)
-	sendResp, err = cli.BroadcastTx(ctx, []sdk.Msg{feeGrantSendMsg}, &types2.TxOption{
+	cli.SetDefaultAccount(grantee)
+	txHash, err = cli.CreatePaymentAccount(ctx, granteeAddr, types2.TxOption{
 		FeeGranter: granter.GetAddress(),
 	})
+
 	s.Require().NoError(err)
-	_, err = cli.WaitForTx(ctx, sendResp.TxResponse.TxHash)
-	s.Require().NoError(err)
+	_, _ = cli.WaitForTx(ctx, txHash)
 
 	granteeBalanceAfter, err := cli.GetAccountBalance(ctx, granteeAddr)
 	s.Require().NoError(err)
 
-	// grantee balance only decreases by transfer amount, not by tx fee
-	s.Require().Equal(granteeBalanceAfterSanitySend.Amount.Sub(math.NewInt(1)), granteeBalanceAfter.Amount)
+	// grantee balance stays still
+	s.Require().Equal(granteeBalanceBefore, granteeBalanceAfter)
 
 	// the granter revokes
 	cli.SetDefaultAccount(granter)
@@ -113,7 +92,7 @@ func (s *FeeGrantTestSuite) Test_FeeGrant() {
 
 	// transaction is failed
 	cli.SetDefaultAccount(grantee)
-	_, err = cli.BroadcastTx(ctx, []sdk.Msg{feeGrantSendMsg}, &types2.TxOption{
+	_, err = cli.CreatePaymentAccount(ctx, granteeAddr, types2.TxOption{
 		FeeGranter: granter.GetAddress(),
 	})
 	s.Require().Error(err)
