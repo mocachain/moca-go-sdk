@@ -397,8 +397,9 @@ func (c *Client) SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxO
 
 func (c *Client) newTxConfigWithMocaAddressCodec() (sdkclient.TxConfig, error) {
 	signingOptions := &txsigning.Options{
-		FileResolver: c.chainClient.GetCodec().InterfaceRegistry(),
-		AddressCodec: mocacmdconfig.NewMultiPrefixBech32AccCodec(),
+		FileResolver:          c.chainClient.GetCodec().InterfaceRegistry(),
+		AddressCodec:          mocacmdconfig.NewMultiPrefixBech32AccCodec(),
+		ValidatorAddressCodec: mocacmdconfig.NewMultiPrefixBech32ValCodec(),
 		CustomGetSigners: map[protoreflect.FullName]txsigning.GetSignersFunc{
 			protoreflect.FullName("moca.payment.MsgCreatePaymentAccount"): func(msg protov2.Message) ([][]byte, error) {
 				creatorField := msg.ProtoReflect().Descriptor().Fields().ByName("creator")
@@ -420,6 +421,10 @@ func (c *Client) newTxConfigWithMocaAddressCodec() (sdkclient.TxConfig, error) {
 }
 
 func (c *Client) simulateTxWithMocaAddressCodec(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*txtypes.SimulateResponse, error) {
+	txOpt, err := c.txOptionWithPinnedNonce(ctx, txOpt)
+	if err != nil {
+		return nil, err
+	}
 	txConfig, err := c.newTxConfigWithMocaAddressCodec()
 	if err != nil {
 		return nil, err
@@ -436,6 +441,10 @@ func (c *Client) simulateTxWithMocaAddressCodec(ctx context.Context, msgs []sdk.
 }
 
 func (c *Client) broadcastTxWithMocaAddressCodec(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*txtypes.BroadcastTxResponse, error) {
+	txOpt, err := c.txOptionWithPinnedNonce(ctx, txOpt)
+	if err != nil {
+		return nil, err
+	}
 	txConfig, err := c.newTxConfigWithMocaAddressCodec()
 	if err != nil {
 		return nil, err
@@ -458,6 +467,32 @@ func (c *Client) broadcastTxWithMocaAddressCodec(ctx context.Context, msgs []sdk
 		Mode:    mode,
 		TxBytes: txSignedBytes,
 	}, opts...)
+}
+
+func (c *Client) txOptionWithPinnedNonce(ctx context.Context, txOpt *types.TxOption) (*types.TxOption, error) {
+	if txOpt != nil && txOpt.Nonce != 0 {
+		return txOpt, nil
+	}
+
+	km, err := c.chainClient.GetKeyManager()
+	if err != nil {
+		return nil, err
+	}
+	if txOpt != nil && txOpt.OverrideKeyManager != nil {
+		km = *txOpt.OverrideKeyManager
+	}
+
+	account, err := c.chainClient.GetAccountByAddr(ctx, km.GetAddr())
+	if err != nil {
+		return nil, err
+	}
+
+	var pinned types.TxOption
+	if txOpt != nil {
+		pinned = *txOpt
+	}
+	pinned.Nonce = account.GetSequence()
+	return &pinned, nil
 }
 
 func (c *Client) chainClientSignTx(ctx context.Context, txConfig sdkclient.TxConfig, txBuilder sdkclient.TxBuilder, txOpt *types.TxOption) ([]byte, error) {
@@ -486,6 +521,8 @@ func (c *Client) chainClientSignTx(ctx context.Context, txConfig sdkclient.TxCon
 		ChainID:       chainID,
 		AccountNumber: account.GetAccountNumber(),
 		Sequence:      nonce,
+		Address:       km.GetAddr().String(),
+		PubKey:        km.PubKey(),
 	}
 	sig, err := clitx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_EIP_712, signerData, txBuilder, km, txConfig, nonce)
 	if err != nil {

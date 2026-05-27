@@ -128,7 +128,19 @@ func (c *Client) CreatePaymentAccount(ctx context.Context, address string, txOpt
 		msg := &paymentTypes.MsgCreatePaymentAccount{
 			Creator: hex.EncodeToString(c.MustGetDefaultAccount().GetAddress()),
 		}
-		return c.sendTxn(ctx, msg, &txOption)
+		resp, err := c.chainClient.BroadcastTx(ctx, []sdk.Msg{msg}, &txOption)
+		if err != nil {
+			return "", err
+		}
+		if resp.TxResponse.Code != 0 {
+			return "", fmt.Errorf(
+				"the tx has failed with response code: %d, codespace:%s, raw_log:%s",
+				resp.TxResponse.Code,
+				resp.TxResponse.Codespace,
+				resp.TxResponse.RawLog,
+			)
+		}
+		return resp.TxResponse.TxHash, nil
 	}
 	return c.sendCreatePaymentAccountEvmTxn(ctx)
 }
