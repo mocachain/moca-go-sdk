@@ -28,6 +28,9 @@ jobs:
       matrix:
         go-version: [1.23.x]
         os: [ubuntu-latest]
+    env:
+      GOMODCACHE: ${{ runner.temp }}/go/pkg/mod
+      GOCACHE: ${{ runner.temp }}/go-build
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install Go
@@ -65,7 +68,7 @@ jobs:
         run: |
           go mod edit -replace github.com/mocachain/moca/v2=../moca
           go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
-          go_cache="$(go env GOPATH)/pkg/mod/cache/vcs"
+          go_cache="$(go env GOMODCACHE)/cache/vcs"
           rm -rf "${go_cache}"
           go mod download
       - name: Install compatible contract tools
@@ -90,7 +93,7 @@ jobs:
           git checkout ${{ env.MocaStorageProviderTag }}
           go mod edit -replace github.com/mocachain/moca/v2=../moca
           go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
-          go_cache="$(go env GOPATH)/pkg/mod/cache/vcs"
+          go_cache="$(go env GOMODCACHE)/cache/vcs"
           rm -rf "${go_cache}"
           go mod download
           make install-tools
