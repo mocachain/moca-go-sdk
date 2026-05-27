@@ -111,12 +111,12 @@ jobs:
       - name: Run MySQL
         run: |
           sudo /etc/init.d/mysql start
-          mysql -h ${{ env.MYSQL_IP }} -P ${{ env.MYSQL_PORT }} -u${{ env.MYSQL_USER }} -p${{ env.MYSQL_PASSWORD }} -e 'CREATE DATABASE sp_0; CREATE DATABASE sp_1; CREATE DATABASE sp_2; CREATE DATABASE sp_3; CREATE DATABASE sp_4; CREATE DATABASE sp_5; CREATE DATABASE sp_6; CREATE DATABASE sp_7;'
+          mysql -h ${{ env.MYSQL_IP }} -P ${{ env.MYSQL_PORT }} -u${{ env.MYSQL_USER }} -p${{ env.MYSQL_PASSWORD }} -e 'CREATE DATABASE sp_0; CREATE DATABASE sp_1; CREATE DATABASE sp_2;'
       # Run Moca
       - name: Run Moca
         run: |
           cd ../moca
-          bash ./deployment/localup/localup.sh all 1 8
+          bash ./deployment/localup/localup.sh all 1 3
           echo "=== wait for moca gRPC ==="
           for i in {1..60}; do
             if timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/9090'; then
@@ -137,7 +137,7 @@ jobs:
             fi
             sleep 2
           done
-          bash ./deployment/localup/localup.sh export_sps 1 8
+          bash ./deployment/localup/localup.sh export_sps 1 3
           cp ./deployment/localup/.local/sp_export.json ./sp.json
           cat sp.json
           cd ../moca-go-sdk
@@ -160,7 +160,7 @@ jobs:
               cat "${sp_dir}/log.txt" || true
             done
           }
-          sed -i 's/^SP_NUM=.*/SP_NUM=8/' deployment/localup/env.info
+          sed -i 's/^SP_NUM=.*/SP_NUM=3/' deployment/localup/env.info
           bash ./deployment/localup/localup.sh --generate $GITHUB_WORKSPACE/../moca/sp.json ${{ env.MYSQL_USER }} ${{ env.MYSQL_PASSWORD }} ${{ env.MYSQL_IP }}:${{ env.MYSQL_PORT }}
           bash ./deployment/localup/localup.sh --reset
           set +e
@@ -208,11 +208,6 @@ jobs:
             cat ./deployment/localup/local_env/sp0/log.txt
             cat ./deployment/localup/local_env/sp1/log.txt
             cat ./deployment/localup/local_env/sp2/log.txt
-            cat ./deployment/localup/local_env/sp3/log.txt
-            cat ./deployment/localup/local_env/sp4/log.txt
-            cat ./deployment/localup/local_env/sp5/log.txt
-            cat ./deployment/localup/local_env/sp6/log.txt
-            cat ./deployment/localup/local_env/sp7/log.txt
             exit $exit_status_command
           fi
           cd ..
