@@ -52,7 +52,7 @@ func resolveGRPCEndpoint() string {
 	if value := os.Getenv("MOCA_E2E_GRPC_ENDPOINT"); value != "" {
 		return value
 	}
-	return "localhost:19090"
+	return "127.0.0.1:19090"
 }
 
 func resolveLocalupDir() string {

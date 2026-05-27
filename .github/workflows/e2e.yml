@@ -169,6 +169,7 @@ jobs:
       - name: start e2e
         env:
           MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/../moca/deployment/localup/.local
+          MOCA_E2E_GRPC_ENDPOINT: 127.0.0.1:19090
         run: |
           export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
           export GOCACHE="${RUNNER_TEMP}/go-build"
