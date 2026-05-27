@@ -1,10 +1,10 @@
 package types
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"io"
+	"math/rand"
 	"net/url"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	proto "github.com/cosmos/gogoproto/proto"
@@ -55,14 +55,9 @@ type ChallengeResult struct {
 // RandStr - Generate a random string for test usage.
 func RandStr(n int) string {
 	b := make([]rune, n)
-	var seedBytes [8]byte
-	if _, err := rand.Read(seedBytes[:]); err != nil {
-		panic(err)
-	}
-	randMarker := binary.LittleEndian.Uint64(seedBytes[:])
+	randMarker := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := range b {
-		randMarker = randMarker*1664525 + 1013904223
-		b[i] = letters[randMarker%uint64(len(letters))]
+		b[i] = letters[randMarker.Intn(len(letters))]
 	}
 	return string(b)
 }

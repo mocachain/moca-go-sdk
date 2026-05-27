@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -123,28 +122,10 @@ func exportLocalPrivateKey(name, homeDir string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func exportPresetPrivateKey(name string) (string, error) {
-	scriptPath := filepath.Clean(filepath.Join(LocalupDir, "..", "localup.sh"))
-	content, err := os.ReadFile(scriptPath)
-	if err != nil {
-		return "", fmt.Errorf("read localup preset keys failed: %w", err)
-	}
-
-	pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^%s_prikey=([0-9a-fA-F]+)$`, regexp.QuoteMeta(name)))
-	matches := pattern.FindStringSubmatch(string(content))
-	if len(matches) != 2 {
-		return "", fmt.Errorf("preset private key for %s not found in %s", name, scriptPath)
-	}
-	return matches[1], nil
-}
-
 func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
 	privateKey, err := exportLocalPrivateKey(name, homeDir)
 	if err != nil {
-		privateKey, err = exportPresetPrivateKey(name)
-		if err != nil {
-			return nil, "", err
-		}
+		return nil, "", err
 	}
 
 	account, err := types.NewAccountFromPrivateKey(name, privateKey)
@@ -156,12 +137,11 @@ func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
 
 type BaseSuite struct {
 	suite.Suite
-	DefaultAccount      *types.Account
-	DefaultPrivateKey   string
-	Client              client.IClient
-	ClientContext       context.Context
-	ChallengeClient     client.IClient
-	ChallengePrivateKey string
+	DefaultAccount    *types.Account
+	DefaultPrivateKey string
+	Client            client.IClient
+	ClientContext     context.Context
+	ChallengeClient   client.IClient
 }
 
 func (s *BaseSuite) NewChallengeClient() {
@@ -173,7 +153,6 @@ func (s *BaseSuite) NewChallengeClient() {
 
 	challengeAcc, priKey, err := loadLocalAccount("challenger0", filepath.Join(LocalupDir, "challenger0"))
 	s.Require().NoError(err)
-	s.ChallengePrivateKey = priKey
 	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: challengeAcc,
 		GrpcAddress:    GRPCEndpoint,

@@ -156,23 +156,11 @@ func (c *Client) DisableRefund(ctx context.Context, paymentAddress string, txOpt
 		Owner: c.MustGetDefaultAccount().GetAddress().String(),
 		Addr:  accAddress.String(),
 	}
-	tx, err := c.sendDisableRefundEvmTxn(ctx, msgDisableRefund)
+	tx, err := c.BroadcastTx(ctx, []sdk.Msg{msgDisableRefund}, &txOption)
 	if err != nil {
 		return "", err
 	}
-	return tx, nil
-}
-
-func (c *Client) sendDisableRefundEvmTxn(ctx context.Context, msg *paymentTypes.MsgDisableRefund) (string, error) {
-	session, err := c.createPaymentEvmSession(ctx, c.privateKey)
-	if err != nil {
-		return "", err
-	}
-	txRsp, err := session.DisableRefund(msg.Addr)
-	if err != nil {
-		return "", err
-	}
-	return txRsp.Hash().String(), nil
+	return tx.TxResponse.TxHash, nil
 }
 
 // ListUserPaymentAccounts - List payment info by a user address.
