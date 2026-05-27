@@ -28,9 +28,6 @@ jobs:
       matrix:
         go-version: [1.23.x]
         os: [ubuntu-latest]
-    env:
-      GOMODCACHE: ${{ runner.temp }}/go/pkg/mod
-      GOCACHE: ${{ runner.temp }}/go-build
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install Go
@@ -66,6 +63,8 @@ jobs:
           cd ../moca-go-sdk
       - name: Wire local dependency graph
         run: |
+          export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
+          export GOCACHE="${RUNNER_TEMP}/go-build"
           go mod edit -replace github.com/mocachain/moca/v2=../moca
           go mod edit -replace github.com/mocachain/moca-common/go=../moca-common/go
           go_cache="$(go env GOMODCACHE)/cache/vcs"
@@ -82,12 +81,16 @@ jobs:
       # Build Moca
       - name: Build Moca
         run: |
+          export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
+          export GOCACHE="${RUNNER_TEMP}/go-build"
           cd ../moca
           make build
           cd ..
       # Build Moca-SP
       - name: Build Moca-SP
         run: |
+          export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
+          export GOCACHE="${RUNNER_TEMP}/go-build"
           git clone https://github.com/mocachain/moca-storage-provider.git ../moca-storage-provider
           cd ../moca-storage-provider
           git checkout ${{ env.MocaStorageProviderTag }}
@@ -140,6 +143,8 @@ jobs:
         env:
           MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/../moca/deployment/localup/.local
         run: |
+          export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
+          export GOCACHE="${RUNNER_TEMP}/go-build"
           set +e
           make e2e_test
           exit_status_command=$?
