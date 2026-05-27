@@ -21,15 +21,15 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/rs/zerolog/log"
 
+	hashlib "github.com/mocachain/moca-common/go/hash"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	"github.com/mocachain/moca/v2/types/s3util"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	hashlib "github.com/mocachain/moca-common/go/hash"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IObjectClient interface defines functions related to object operations.
@@ -58,6 +58,7 @@ type IObjectClient interface {
 	GetObjectPolicy(ctx context.Context, bucketName, objectName string, principalAddr string) (*permTypes.Policy, error)
 	IsObjectPermissionAllowed(ctx context.Context, userAddr string, bucketName, objectName string, action permTypes.ActionType) (permTypes.Effect, error)
 	ListObjects(ctx context.Context, bucketName string, opts types.ListObjectsOptions) (types.ListObjectsResult, error)
+	GetRedundancyParams() (uint32, uint32, uint64, error)
 	ComputeHashRoots(reader io.Reader, isSerial bool) ([][]byte, int64, storageTypes.RedundancyType, error)
 	CreateFolder(ctx context.Context, bucketName, objectName string, opts types.CreateObjectOptions) (string, error)
 	DelegateCreateFolder(ctx context.Context, bucketName, objectName string, opts types.PutObjectOptions) error

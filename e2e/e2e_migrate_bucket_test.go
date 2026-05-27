@@ -12,11 +12,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 type BucketMigrateTestSuite struct {
@@ -171,13 +171,14 @@ func (s *BucketMigrateTestSuite) MustCreateBucket(visibility storageTypes.Visibi
 func (s *BucketMigrateTestSuite) SelectDestSP(objectDetail *types.ObjectDetail) *spTypes.StorageProvider {
 	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
 	s.Require().NoError(err)
+	expectedGVGSPCount := s.expectedGVGSPCount()
 
 	spIDs := make(map[uint32]bool)
 	spIDs[objectDetail.GlobalVirtualGroup.PrimarySpId] = true
 	for _, id := range objectDetail.GlobalVirtualGroup.SecondarySpIds {
 		spIDs[id] = true
 	}
-	s.Require().Equal(len(spIDs), 7)
+	s.Require().Equal(expectedGVGSPCount, len(spIDs))
 
 	var destSP *spTypes.StorageProvider
 	for _, sp := range sps {
@@ -187,9 +188,17 @@ func (s *BucketMigrateTestSuite) SelectDestSP(objectDetail *types.ObjectDetail) 
 			break
 		}
 	}
-	s.Require().NotNil(destSP)
+	if destSP == nil {
+		s.T().Skipf("bucket migrate tests require one SP outside the source GVG; available SPs=%d, GVG SPs=%d", len(sps), len(spIDs))
+	}
 
 	return destSP
+}
+
+func (s *BucketMigrateTestSuite) expectedGVGSPCount() int {
+	dataBlocks, parityBlocks, _, err := s.Client.GetRedundancyParams()
+	s.Require().NoError(err)
+	return int(1 + dataBlocks + parityBlocks)
 }
 
 func (s *BucketMigrateTestSuite) waitUntilBucketMigrateFinish(bucketName string, destSP *spTypes.StorageProvider) *storageTypes.BucketInfo {
@@ -263,26 +272,14 @@ func (s *BucketMigrateTestSuite) Test_Bucket_Migrate_Simple_Conflict_Case() {
 	objectDetail := objectDetails[0]
 	buffer := contentBuffer[0]
 
-	// select a storage provider to migrate
-	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
-	s.Require().NoError(err)
+	expectedGVGSPCount := s.expectedGVGSPCount()
 
 	spIDs := make(map[uint32]bool)
 	spIDs[objectDetail.GlobalVirtualGroup.PrimarySpId] = true
 	for _, id := range objectDetail.GlobalVirtualGroup.SecondarySpIds {
 		spIDs[id] = true
 	}
-	s.Require().Equal(len(spIDs), 7)
-
-	var destSP *spTypes.StorageProvider
-	for _, sp := range sps {
-		_, exist := spIDs[sp.Id]
-		if !exist {
-			destSP = &sp
-			break
-		}
-	}
-	s.Require().NotNil(destSP)
+	s.Require().Equal(expectedGVGSPCount, len(spIDs))
 
 	// migrate bucket with conflict
 	conflictSPID := objectDetail.GlobalVirtualGroup.SecondarySpIds[0]

@@ -193,6 +193,6 @@ func (s *BaseSuite) WaitSealObject(bucketName string, objectName string) {
 		time.Sleep(3 * time.Second)
 	}
 
-	s.Require().Equal(objectDetail.ObjectInfo.GetObjectStatus().String(), "OBJECT_STATUS_SEALED")
+	s.Require().Equal("OBJECT_STATUS_SEALED", objectDetail.ObjectInfo.GetObjectStatus().String())
 	s.T().Logf("---> Wait Seal Object cost %d ms, <---", time.Since(startCheckTime).Milliseconds())
 }
