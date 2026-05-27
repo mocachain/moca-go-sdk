@@ -16,7 +16,6 @@ env:
   MocaCommonTag: main
   MocaStorageProviderTag: main
   GOPRIVATE: github.com/mocachain
-  GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
   MYSQL_USER: root
   MYSQL_PASSWORD: root
   MYSQL_ROOT_PASSWORD: root
@@ -52,8 +51,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Setup GitHub Token
-        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: Checkout dependency repos
         run: |
           git clone https://github.com/mocachain/moca.git ../moca

@@ -10,10 +10,6 @@ on:
       - main
       - develop
 
-env:
-  MocaTag: main
-  MocaCommonTag: main
-
 jobs:
   gosec:
     name: gosec
@@ -22,26 +18,11 @@ jobs:
         go-version: [1.23.x]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      GOPRIVATE: github.com/mocachain
-      GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v4
-      - name: Setup GitHub Token
-        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
-      - name: Checkout dependency repos
-        run: |
-          git clone https://github.com/mocachain/moca.git ../moca
-          cd ../moca
-          git checkout ${{ env.MocaTag }}
-          cd ../moca-go-sdk
-          git clone https://github.com/mocachain/moca-common.git ../moca-common
-          cd ../moca-common
-          git checkout ${{ env.MocaCommonTag }}
-          cd ../moca-go-sdk
       - uses: actions/cache@v4
         with:
           # In order:
@@ -57,17 +38,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Prepare CI modfile
-        run: |
-          cp go.mod ci.mod
-          cp go.sum ci.sum
-          go mod edit -modfile=ci.mod -replace github.com/mocachain/moca/v2=../moca
-          go mod edit -modfile=ci.mod -replace github.com/mocachain/moca-common/go=../moca-common/go
-      - name: Download modules
-        run: go mod download -modfile=ci.mod
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
-        env:
-          GOFLAGS: -modfile=ci.mod
         with:
           args: -quiet -confidence high -severity high ./...

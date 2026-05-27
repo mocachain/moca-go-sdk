@@ -8,11 +8,6 @@ on:
     branches:
       - main
       - develop
-
-env:
-  MocaTag: main
-  MocaCommonTag: main
-
 permissions:
   contents: read
   # Optional: allow read access to pull request. Use with `only-new-issues` option.
@@ -25,27 +20,11 @@ jobs:
         go-version: [1.23.x]
         os: [ ubuntu-20.04 ]
     runs-on: ${{ matrix.os }}
-    env:
-      GOPRIVATE: github.com/mocachain
-      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     steps:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v4
-
-      - run: export GOPRIVATE="github.com/mocachain/*"
-      - run: git config --global url."https://${{ secrets.GH_TOKEN }}@github.com".insteadOf "https://github.com"
-      - name: Checkout dependency repos
-        run: |
-          git clone https://github.com/mocachain/moca.git ../moca
-          cd ../moca
-          git checkout ${{ env.MocaTag }}
-          cd ../moca-go-sdk
-          git clone https://github.com/mocachain/moca-common.git ../moca-common
-          cd ../moca-common
-          git checkout ${{ env.MocaCommonTag }}
-          cd ../moca-go-sdk
 
       - uses: actions/cache@v4
         with:
@@ -62,18 +41,8 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Prepare CI modfile
-        run: |
-          cp go.mod ci.mod
-          cp go.sum ci.sum
-          go mod edit -modfile=ci.mod -replace github.com/mocachain/moca/v2=../moca
-          go mod edit -modfile=ci.mod -replace github.com/mocachain/moca-common/go=../moca-common/go
-      - name: Download modules
-        run: go mod download -modfile=ci.mod
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
-        env:
-          GOFLAGS: -modfile=ci.mod
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: latest
