@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"testing"
 	"time"
 
@@ -33,10 +35,51 @@ func (s *BucketMigrateTestSuite) SetupSuite() {
 			break
 		}
 	}
+
+	s.requireMigrateAdminAvailable()
 }
 
 func TestBucketMigrateTestSuiteTestSuite(t *testing.T) {
 	suite.Run(t, new(BucketMigrateTestSuite))
+}
+
+func (s *BucketMigrateTestSuite) requireMigrateAdminAvailable() {
+	if s.PrimarySP.Endpoint == "" {
+		s.T().Skip("bucket migrate tests require a primary SP endpoint")
+		return
+	}
+
+	adminAddr, err := bucketMigrateAdminAddr(s.PrimarySP.Endpoint)
+	if err != nil {
+		s.T().Skipf("bucket migrate tests require a resolvable SP admin endpoint: %v", err)
+		return
+	}
+
+	conn, err := net.DialTimeout("tcp", adminAddr, 2*time.Second)
+	if err != nil {
+		s.T().Skipf("bucket migrate tests require reachable SP admin endpoint %s: %v", adminAddr, err)
+		return
+	}
+	_ = conn.Close()
+}
+
+func bucketMigrateAdminAddr(endpoint string) (string, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", err
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("empty host in endpoint %q", endpoint)
+	}
+
+	switch host {
+	case "127.0.0.1", "localhost":
+		return "127.0.0.1:9033", nil
+	default:
+		return net.JoinHostPort(host, "9033"), nil
+	}
 }
 
 func (s *BucketMigrateTestSuite) CreateObjects(bucketName string, count int) ([]*types.ObjectDetail, []bytes.Buffer, error) {

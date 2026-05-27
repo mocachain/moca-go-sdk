@@ -22,10 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 	"github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -251,86 +251,83 @@ func (c *Client) WaitForNBlocks(ctx context.Context, n int64) error {
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) WaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	// return c.waitForTx(ctx, hash)
-	return c.waitForEvmTx(ctx, hash)
-}
-
-func (c *Client) waitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
 	for {
-		var (
-			txResponse *ctypes.ResultTx
-			err        error
-			waitTxCtx  context.Context
-			cancelFunc context.CancelFunc
-		)
+		txResponse, txErr := c.tryWaitForTx(ctx, hash)
+		if txErr == nil {
+			return txResponse, nil
+		}
+		if txErr != errTxNotFound {
+			return nil, txErr
+		}
 
-		// when websocket conn is used, use a short timeout context to achieve the retry mechanism
-		if c.useWebsocketConn {
-			waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
-			txResponse, err = c.chainClient.Tx(waitTxCtx, hash)
-			cancelFunc()
-		} else {
-			txResponse, err = c.chainClient.Tx(ctx, hash)
+		evmResponse, evmErr := c.tryWaitForEvmTx(ctx, hash)
+		if evmErr == nil {
+			return evmResponse, nil
 		}
-		if err != nil {
-			// Tx not found, wait for next block and try again
-			// If websocket conn is enabled, we also want to re-try the GetTx calls by having a timeout context
-			if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
+		if evmErr != errTxNotFound {
+			return nil, evmErr
+		}
 
-				err := c.WaitForNextBlock(ctx)
-				if err != nil {
-					return nil, errors.Wrap(err, "waiting for next block")
-				}
-				continue
-			}
-			return nil, errors.Wrapf(err, "fetching tx '%s'", hash)
+		if err := c.WaitForNextBlock(ctx); err != nil {
+			return nil, errors.Wrap(err, "waiting for next block")
 		}
-		// `nil` could mean the transaction is in the mempool, invalidated, or was not sent in the first place.
-		if txResponse == nil {
-			err := c.WaitForNextBlock(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "waiting for next block")
-			}
-			continue
-		}
-		// Tx found
-		return txResponse, nil
 	}
 }
 
-func (c *Client) waitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	for {
-		receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
-		if err != nil {
-			if err == ethereum.NotFound {
-				if err := c.WaitForNextBlock(ctx); err != nil {
-					return nil, errors.Wrap(err, "waiting for next block")
-				}
-				continue
-			}
-			return nil, err
-		}
+var errTxNotFound = fmt.Errorf("tx not found")
 
-		// `nil` could mean the transaction is in the mempool, invalidated, or was not sent in the first place.
-		if receipt == nil {
-			err := c.WaitForNextBlock(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "waiting for next block")
-			}
-			continue
-		}
+func (c *Client) tryWaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
+	var (
+		txResponse *ctypes.ResultTx
+		err        error
+		waitTxCtx  context.Context
+		cancelFunc context.CancelFunc
+	)
+	queryHash := strings.TrimPrefix(hash, "0x")
 
-		if receipt.Status != ethtypes.ReceiptStatusSuccessful {
-			return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
-		}
-
-		h, _ := hex.DecodeString(hash)
-		return &ctypes.ResultTx{
-			Hash:   h,
-			Height: receipt.BlockNumber.Int64(),
-			// todo: fill in the rest of the fields
-		}, nil
+	// when websocket conn is used, use a short timeout context to achieve the retry mechanism
+	if c.useWebsocketConn {
+		waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
+		txResponse, err = c.chainClient.Tx(waitTxCtx, queryHash)
+		cancelFunc()
+	} else {
+		txResponse, err = c.chainClient.Tx(ctx, queryHash)
 	}
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
+			return nil, errTxNotFound
+		}
+		return nil, errors.Wrapf(err, "fetching tx '%s'", hash)
+	}
+	if txResponse == nil {
+		return nil, errTxNotFound
+	}
+	return txResponse, nil
+}
+
+func (c *Client) tryWaitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
+	receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
+	if err != nil {
+		if err == ethereum.NotFound {
+			return nil, errTxNotFound
+		}
+		return nil, err
+	}
+
+	if receipt == nil {
+		return nil, errTxNotFound
+	}
+
+	if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
+	}
+
+	h, _ := hex.DecodeString(hash)
+	return &ctypes.ResultTx{
+		Hash:   h,
+		Height: receipt.BlockNumber.Int64(),
+		// todo: fill in the rest of the fields
+	}, nil
 }
 
 // BroadcastTx - Broadcast a transaction containing the provided message(s) to the chain.
@@ -529,7 +526,7 @@ func (c *Client) sendSetTagEvmTxn(ctx context.Context, msg *storageTypes.MsgSetT
 
 			// Check if it's a nonce-related error that we should retry
 			if strings.Contains(errorMsg, gosdktypes.InvalidNonceErr) ||
-			   strings.Contains(errorMsg, gosdktypes.InvalidSequenceErr) {
+				strings.Contains(errorMsg, gosdktypes.InvalidSequenceErr) {
 
 				if retry == gosdktypes.MaxNonceRetryTime-1 {
 					// This is the last retry, return the error
