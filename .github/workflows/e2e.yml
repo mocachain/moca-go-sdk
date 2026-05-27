@@ -119,12 +119,12 @@ jobs:
           bash ./deployment/localup/localup.sh all 1 8
           echo "=== wait for moca gRPC ==="
           for i in {1..60}; do
-            if timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/19090'; then
-              echo "moca gRPC is ready on 127.0.0.1:19090"
+            if timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/9090'; then
+              echo "moca gRPC is ready on 127.0.0.1:9090"
               break
             fi
             if [ "${i}" -eq 60 ]; then
-              echo "moca gRPC did not become ready on 127.0.0.1:19090"
+              echo "moca gRPC did not become ready on 127.0.0.1:9090"
               echo "=== mocad process list ==="
               ps -ef | grep '[m]ocad' || true
               echo "=== listening ports ==="
@@ -189,13 +189,13 @@ jobs:
       - name: start e2e
         env:
           MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/../moca/deployment/localup/.local
-          MOCA_E2E_GRPC_ENDPOINT: 127.0.0.1:19090
+          MOCA_E2E_GRPC_ENDPOINT: 127.0.0.1:9090
         run: |
           export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
           export GOCACHE="${RUNNER_TEMP}/go-build"
           echo "=== e2e network preflight ==="
           ps -ef | grep '[m]ocad' || true
-          ss -ltnp | grep -E '(:19090|:26657|:8545)' || true
+          ss -ltnp | grep -E '(:9090|:26657|:8545)' || true
           set +e
           make e2e_test
           exit_status_command=$?
