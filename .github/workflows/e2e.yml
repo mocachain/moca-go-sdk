@@ -13,7 +13,6 @@ on:
 
 env:
   GOPRIVATE: github.com/mocachain
-  MOCA_E2E_TOPOLOGY: topology/sdk-3sp.yaml
   MOCA_E2E_MOCAD_IMAGE: ghcr.io/mocachain/mocad:latest
   MOCA_E2E_SP_IMAGE: ghcr.io/mocachain/moca-storage-provider:latest
 
@@ -49,93 +48,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Checkout image e2e harness
-        uses: actions/checkout@v4
-        with:
-          repository: mocachain/moca-e2e
-          path: moca-e2e
-
-      - name: Install compose tooling
+      - name: Pull e2e images
+        working-directory: .github/e2e
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-          yq --version
+          docker pull "${MOCA_E2E_MOCAD_IMAGE}"
+          docker pull "${MOCA_E2E_SP_IMAGE}"
+          docker pull mysql:8.0
 
       - name: Start image-only local stack
-        working-directory: moca-e2e
+        working-directory: .github/e2e
         run: |
-          cat > "${MOCA_E2E_TOPOLOGY}" <<'TOPOLOGY'
-          chain:
-            chain_id: moca_5151-1
-            denom: amoca
-            genesis_account_balance: "100000000000000000000000000"
-            staking_bond_amount: "10000000000000000000000000"
-            sp_min_deposit: "10000000000000000000000"
-            gov_min_deposit: "10000000000000000000"
-            gov_voting_period: "15s"
-            block_time: "1s"
-
-          images:
-            validator: ghcr.io/mocachain/mocad:latest
-            cosmovisor: ghcr.io/mocachain/mocad:latest
-            storage_provider: ghcr.io/mocachain/moca-storage-provider:latest
-
-          validators:
-            - name: validator-0
-              mode: docker
-
-          storage_providers:
-            - name: sp-0
-            - name: sp-1
-            - name: sp-2
-
-          services:
-            mysql:
-              image: mysql:8.0
-
-          ports:
-            rpc_base: 26657
-            grpc_base: 19090
-            rest_base: 1317
-            evm_rpc_base: 8545
-            evm_ws_base: 8560
-            p2p_base: 26600
-            sp_gateway_base: 9033
-            sp_p2p_base: 9400
-          TOPOLOGY
-
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('scripts/init-genesis.sh')
-          s = p.read_text()
-          s = s.replace('ENDPOINT="http://${SPNAME}:9033"', 'ENDPOINT="http://127.0.0.1:$((9033 + i))"')
-          p.write_text(s)
-          PY
-
-          ./scripts/build.sh local "${MOCA_E2E_TOPOLOGY}"
-          ./scripts/teardown.sh local
-          ./scripts/generate-compose.sh "${MOCA_E2E_TOPOLOGY}" docker-compose.generated.yml
           rm -rf .docker-shared
           mkdir -p .docker-shared
-          python3 - <<'PY2'
-          from pathlib import Path
-          p = Path('docker-compose.generated.yml')
-          lines = p.read_text().splitlines()
-          out = []
-          for line in lines:
-              out.append(line)
-              if line == '  shared-init:':
-                  out.extend([
-                      '    driver: local',
-                      '    driver_opts:',
-                      '      type: none',
-                      '      o: bind',
-                      '      device: ${PWD}/.docker-shared',
-                  ])
-          p.write_text('\\n'.join(out) + '\\n')
-          PY2
-          docker compose -f docker-compose.generated.yml up -d
-          ./scripts/wait-for-chain.sh http://localhost:26657 5 180
+          docker compose -f docker-compose.yml down -v --remove-orphans || true
+          docker compose -f docker-compose.yml up -d
+          for i in {1..180}; do
+            height=$(curl -sf http://127.0.0.1:26657/status | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo 0)
+            if [ "${height}" -ge 5 ] 2>/dev/null; then
+              echo "chain ready at height ${height}"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose -f docker-compose.yml ps || true
+          docker compose -f docker-compose.yml logs || true
+          exit 1
 
       - name: Extract mocad from image
         run: |
@@ -147,7 +84,7 @@ jobs:
 
       - name: Run SDK e2e tests
         env:
-          MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/moca-e2e/.docker-shared
+          MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/.github/e2e/.docker-shared
           MOCA_E2E_MOCAD: ${{ runner.temp }}/mocad-bin/mocad
           MOCA_E2E_GRPC_ENDPOINT: 127.0.0.1:19090
           MOCA_E2E_ENDPOINT: http://127.0.0.1:26657
@@ -162,13 +99,13 @@ jobs:
 
       - name: Dump image stack logs on failure
         if: failure()
-        working-directory: moca-e2e
+        working-directory: .github/e2e
         run: |
-          docker compose -f docker-compose.generated.yml ps || true
-          docker compose -f docker-compose.generated.yml logs || true
+          docker compose -f docker-compose.yml ps || true
+          docker compose -f docker-compose.yml logs || true
 
       - name: Stop image stack
         if: always()
-        working-directory: moca-e2e
+        working-directory: .github/e2e
         run: |
-          ./scripts/teardown.sh local || true
+          docker compose -f docker-compose.yml down -v --remove-orphans || true
