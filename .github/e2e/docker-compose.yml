@@ -5,7 +5,6 @@ networks:
 services:
   genesis-init:
     image: ${MOCA_E2E_MOCAD_IMAGE:-ghcr.io/mocachain/mocad:latest}
-    platform: linux/amd64
     volumes:
       - ./.docker-shared:/output
       - ./init-genesis.sh:/init-genesis.sh:ro
@@ -39,7 +38,6 @@ services:
 
   validator-0:
     image: ${MOCA_E2E_MOCAD_IMAGE:-ghcr.io/mocachain/mocad:latest}
-    platform: linux/amd64
     volumes:
       - ./.docker-shared:/shared:ro
       - ./entrypoint-validator.sh:/entrypoint-validator.sh:ro
@@ -70,7 +68,8 @@ services:
 
   sp-0:
     image: ${MOCA_E2E_SP_IMAGE:-ghcr.io/mocachain/moca-storage-provider:latest}
-    platform: linux/amd64
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./.docker-shared:/shared:ro
       - ./entrypoint-sp.sh:/entrypoint-sp.sh:ro
@@ -107,7 +106,8 @@ services:
 
   sp-1:
     image: ${MOCA_E2E_SP_IMAGE:-ghcr.io/mocachain/moca-storage-provider:latest}
-    platform: linux/amd64
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./.docker-shared:/shared:ro
       - ./entrypoint-sp.sh:/entrypoint-sp.sh:ro
@@ -144,7 +144,8 @@ services:
 
   sp-2:
     image: ${MOCA_E2E_SP_IMAGE:-ghcr.io/mocachain/moca-storage-provider:latest}
-    platform: linux/amd64
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./.docker-shared:/shared:ro
       - ./entrypoint-sp.sh:/entrypoint-sp.sh:ro

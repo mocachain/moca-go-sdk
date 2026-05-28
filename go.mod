@@ -14,7 +14,7 @@ require (
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/mocachain/moca-common/go v1.2.0-rc1
-	github.com/mocachain/moca/v2 v2.0.0-20260526090417-fd8ac724b76f
+	github.com/mocachain/moca/v2 v2.0.0-20260528095000-70f1b9930570
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.41.0

@@ -1055,6 +1055,8 @@ github.com/mocachain/moca/v2 v2.0.0-20260525093605-c28f5cfe8e69 h1:LqFGZUmBKszXb
 github.com/mocachain/moca/v2 v2.0.0-20260525093605-c28f5cfe8e69/go.mod h1:g0JEObxKmoV3E6NfkkTxyqe8Qo8MTKqmfJ0Rr2TUI7A=
 github.com/mocachain/moca/v2 v2.0.0-20260526090417-fd8ac724b76f h1:1PgRqhdRp41r0qFnyvnyOWVzkclipY34KQP8UDOEd/s=
 github.com/mocachain/moca/v2 v2.0.0-20260526090417-fd8ac724b76f/go.mod h1:/4bF/PV5gFRbvh6wzcYmgdZeM2fZlsYYBtJPJiSCOLg=
+github.com/mocachain/moca/v2 v2.0.0-20260528095000-70f1b9930570 h1:+kszv4SqnH2qpuAC4sIJv+H0gSKQ3diQ1vBIwiu3HkU=
+github.com/mocachain/moca/v2 v2.0.0-20260528095000-70f1b9930570/go.mod h1:/4bF/PV5gFRbvh6wzcYmgdZeM2fZlsYYBtJPJiSCOLg=
 github.com/mocachain/polygon-edge v1.3.3-moca.1 h1:YtHnpIxMOUkCFp6Z+BHt8wCb+35+HpCVMZ/dFUylzBs=
 github.com/mocachain/polygon-edge v1.3.3-moca.1/go.mod h1:bDvHrg7QQKSx31K588TEWgHICl5dCPkotffzK9CE6IE=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

@@ -84,8 +84,12 @@ func storageAdminAddr(endpoint string) (string, error) {
 	}
 
 	switch host {
-	case "127.0.0.1", "localhost":
+	case "127.0.0.1", "localhost", "host.docker.internal", "sp-0":
 		return "127.0.0.1:9033", nil
+	case "sp-1":
+		return "127.0.0.1:9034", nil
+	case "sp-2":
+		return "127.0.0.1:9035", nil
 	default:
 		return net.JoinHostPort(host, "9033"), nil
 	}
@@ -963,10 +967,13 @@ func (s *StorageTestSuite) Test_Get_Object_With_ForcedSpEndpoint() {
 
 	s.T().Log("---> client.New with ForceToUseSpecifiedSpEndpointForDownloadOnly option param filled <---")
 	origClient := s.Client
-	s.Client, err = client.New(basesuite.ChainID, basesuite.Endpoint, basesuite.EVMEndpoint, s.DefaultPrivateKey, client.Option{
-		DefaultAccount: s.DefaultAccount,
-		ForceToUseSpecifiedSpEndpointForDownloadOnly: s.PrimarySP.Endpoint,
-	})
+	defer func() {
+		s.T().Log("---> restore client without ForceToUseSpecifiedSpEndpointForDownloadOnly option param <---")
+		s.Client = origClient
+	}()
+	opts := basesuite.LocalE2EClientOption(s.DefaultAccount, basesuite.LocalE2ETransport{})
+	opts.ForceToUseSpecifiedSpEndpointForDownloadOnly = s.PrimarySP.Endpoint
+	s.Client, err = client.New(basesuite.ChainID, basesuite.Endpoint, basesuite.EVMEndpoint, s.DefaultPrivateKey, opts)
 	s.Require().NoError(err)
 
 	s.T().Log("---> get object with ForceToUseSpecifiedSpEndpointForDownloadOnly <---")
@@ -981,8 +988,6 @@ func (s *StorageTestSuite) Test_Get_Object_With_ForcedSpEndpoint() {
 	s.Require().Equal(objectBytes, buffer.Bytes())
 	s.Require().NoError(err)
 
-	s.T().Log("---> restore client without ForceToUseSpecifiedSpEndpointForDownloadOnly option param <---")
-	s.Client = origClient
 }
 
 func (s *StorageTestSuite) TestCreateFolder() {

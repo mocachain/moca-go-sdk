@@ -3,6 +3,8 @@ package basesuite
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -163,6 +165,70 @@ type BaseSuite struct {
 	ChallengeClient   client.IClient
 }
 
+type LocalE2ETransport struct {
+	base http.RoundTripper
+}
+
+func (t LocalE2ETransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL == nil {
+		return t.transport().RoundTrip(req)
+	}
+
+	host := req.URL.Hostname()
+	port := req.URL.Port()
+	targetHost, targetPort, ok := localE2EHostPort(host, port)
+	if !ok {
+		return t.transport().RoundTrip(req)
+	}
+
+	cloned := req.Clone(req.Context())
+	u := *req.URL
+	u.Host = net.JoinHostPort(targetHost, targetPort)
+	cloned.URL = &u
+	if cloned.Host == "" {
+		cloned.Host = req.URL.Host
+	}
+	return t.transport().RoundTrip(cloned)
+}
+
+func localE2EHostPort(host, port string) (string, string, bool) {
+	if port == "" {
+		port = "80"
+	}
+	if strings.EqualFold(host, "host.docker.internal") {
+		return "127.0.0.1", port, true
+	}
+	if port != "9033" {
+		return "", "", false
+	}
+	switch strings.ToLower(host) {
+	case "sp-0":
+		return "127.0.0.1", "9033", true
+	case "sp-1":
+		return "127.0.0.1", "9034", true
+	case "sp-2":
+		return "127.0.0.1", "9035", true
+	default:
+		return "", "", false
+	}
+}
+
+func (t LocalE2ETransport) transport() http.RoundTripper {
+	if t.base != nil {
+		return t.base
+	}
+	return http.DefaultTransport
+}
+
+func LocalE2EClientOption(account *types.Account, transport http.RoundTripper) client.Option {
+	return client.Option{
+		DefaultAccount: account,
+		GrpcAddress:    GRPCEndpoint,
+		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
+		Transport:      transport,
+	}
+}
+
 func (s *BaseSuite) NewChallengeClient() {
 	challengeAcc, priKey, err := loadFirstLocalAccount(
 		struct {
@@ -175,11 +241,7 @@ func (s *BaseSuite) NewChallengeClient() {
 		}{"challenger-0", filepath.Join(LocalupDir, "challenger-0")},
 	)
 	s.Require().NoError(err)
-	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
-		DefaultAccount: challengeAcc,
-		GrpcAddress:    GRPCEndpoint,
-		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
-	})
+	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, LocalE2EClientOption(challengeAcc, LocalE2ETransport{}))
 	s.Require().NoError(err)
 }
 
@@ -196,11 +258,7 @@ func (s *BaseSuite) SetupSuite() {
 	)
 	s.Require().NoError(err)
 	s.DefaultPrivateKey = priKey
-	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
-		DefaultAccount: account,
-		GrpcAddress:    GRPCEndpoint,
-		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
-	})
+	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, LocalE2EClientOption(account, LocalE2ETransport{}))
 	s.Require().NoError(err)
 	s.ClientContext = context.Background()
 	s.DefaultAccount = account

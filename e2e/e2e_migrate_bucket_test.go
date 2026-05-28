@@ -30,7 +30,7 @@ func (s *BucketMigrateTestSuite) SetupSuite() {
 	spList, err := s.Client.ListStorageProviders(s.ClientContext, false)
 	s.Require().NoError(err)
 	for _, sp := range spList {
-		if sp.Endpoint != "https://sp0.moca.io" {
+		if sp.Id == 1 {
 			s.PrimarySP = sp
 			break
 		}
@@ -75,8 +75,12 @@ func bucketMigrateAdminAddr(endpoint string) (string, error) {
 	}
 
 	switch host {
-	case "127.0.0.1", "localhost":
+	case "127.0.0.1", "localhost", "host.docker.internal", "sp-0":
 		return "127.0.0.1:9033", nil
+	case "sp-1":
+		return "127.0.0.1:9034", nil
+	case "sp-2":
+		return "127.0.0.1:9035", nil
 	default:
 		return net.JoinHostPort(host, "9033"), nil
 	}
@@ -280,6 +284,9 @@ func (s *BucketMigrateTestSuite) Test_Bucket_Migrate_Simple_Conflict_Case() {
 		spIDs[id] = true
 	}
 	s.Require().Equal(expectedGVGSPCount, len(spIDs))
+	if expectedGVGSPCount >= len(spsMust(s)) {
+		s.T().Skipf("bucket migrate conflict test requires one SP outside the source GVG; available SPs=%d, GVG SPs=%d", len(spsMust(s)), expectedGVGSPCount)
+	}
 
 	// migrate bucket with conflict
 	conflictSPID := objectDetail.GlobalVirtualGroup.SecondarySpIds[0]
@@ -337,6 +344,10 @@ func (s *BucketMigrateTestSuite) Test_Empty_Bucket_Migrate_Simple_Case() {
 	// select a storage provider to migrate
 	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
 	s.Require().NoError(err)
+	expectedGVGSPCount := s.expectedGVGSPCount()
+	if expectedGVGSPCount >= len(sps) {
+		s.T().Skipf("empty bucket migrate test requires one SP outside the source GVG; available SPs=%d, GVG SPs=%d", len(sps), expectedGVGSPCount)
+	}
 
 	var destSP *spTypes.StorageProvider
 	for _, sp := range sps {
@@ -371,6 +382,12 @@ func (s *BucketMigrateTestSuite) Test_Empty_Bucket_Migrate_Simple_Case() {
 		s.T().Logf("empty bucket migration kept bucket on family %d with primary SP %d; requested SP %d is already in the source family",
 			bucketInfo.GlobalVirtualGroupFamilyId, family.PrimarySpId, destSP.GetId())
 	}
+}
+
+func spsMust(s *BucketMigrateTestSuite) []spTypes.StorageProvider {
+	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
+	s.Require().NoError(err)
+	return sps
 }
 
 func (s *BucketMigrateTestSuite) CheckChallenge(objectId uint32) bool {

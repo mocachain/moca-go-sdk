@@ -17,6 +17,9 @@ SP_MIN_DEPOSIT="${SP_MIN_DEPOSIT:-10000000000000000000000}"
 GOV_MIN_DEPOSIT="${GOV_MIN_DEPOSIT:-10000000000000000000}"
 GOV_VOTING_PERIOD="${GOV_VOTING_PERIOD:-15s}"
 BLOCK_TIME="${BLOCK_TIME:-1s}"
+FEE_MARKET_MIN_GAS_PRICE="${FEE_MARKET_MIN_GAS_PRICE:-1000000000.000000000000000000}"
+REDUNDANT_DATA_CHUNK_NUM="${REDUNDANT_DATA_CHUNK_NUM:-1}"
+REDUNDANT_PARITY_CHUNK_NUM="${REDUNDANT_PARITY_CHUNK_NUM:-1}"
 
 KEYRING="test"
 WORK_DIR="/tmp/genesis-work"
@@ -59,6 +62,21 @@ jq --arg period "$GOV_VOTING_PERIOD" --arg deposit "$GOV_MIN_DEPOSIT" --arg expe
   .app_state.gov.params.expedited_min_deposit = [{"denom": $denom, "amount": $expedited}] |
   .app_state.gov.deposit_params.max_deposit_period = $period |
   .app_state.gov.deposit_params.min_deposit = [{"denom": $denom, "amount": $deposit}]
+' "$GENESIS" > "$TMPFILE" && mv "$TMPFILE" "$GENESIS"
+
+# The SDK derives default Cosmos tx fees from SimulateResponse.GasInfo.MinGasPrice.
+# A zero/empty feemarket price makes the current moca SDK return an unparsable
+# empty coin expression for some txs (for example MsgMultiSend).
+jq --arg min_gas_price "$FEE_MARKET_MIN_GAS_PRICE" '
+  .app_state.feemarket.params.min_gas_price = $min_gas_price
+' "$GENESIS" > "$TMPFILE" && mv "$TMPFILE" "$GENESIS"
+
+# Keep the image-only e2e stack small. A GVG needs one primary SP plus
+# redundant_data_chunk_num + redundant_parity_chunk_num secondary SPs.
+# The default local stack has 3 SPs, so use 1+1 redundancy unless overridden.
+jq --argjson data_chunks "$REDUNDANT_DATA_CHUNK_NUM" --argjson parity_chunks "$REDUNDANT_PARITY_CHUNK_NUM" '
+  .app_state.storage.params.versioned_params.redundant_data_chunk_num = $data_chunks |
+  .app_state.storage.params.versioned_params.redundant_parity_chunk_num = $parity_chunks
 ' "$GENESIS" > "$TMPFILE" && mv "$TMPFILE" "$GENESIS"
 
 # Set block time (consensus params)
@@ -245,7 +263,7 @@ mkdir -p "$SP_GENTX_DIR"
 
 for i in $(seq 0 $((NUM_SPS - 1))); do
   SPNAME="sp-$i"
-  ENDPOINT="http://127.0.0.1:$((9033 + i))"
+  ENDPOINT="http://${SPNAME}:9033"
   SP_GENTX_FILE="$SP_GENTX_DIR/gentx-${SPNAME}.json"
 
   SPGENTX_ARGS=(
@@ -357,6 +375,12 @@ for i in $(seq 0 $((NUM_VALIDATORS - 1))); do
   echo '{"height":"0","round":0,"step":0}' > "$VOUT/data/priv_validator_state.json"
 
   echo "  $VNAME: config written to $VOUT"
+
+  CHOME="$WORK_DIR/challenger-$i"
+  COUT="$OUTPUT_DIR/challenger-$i"
+  mkdir -p "$COUT/keyring-test"
+  cp -r "$CHOME/keyring-test/"* "$COUT/keyring-test/" 2>/dev/null || true
+  echo "  challenger-$i: keyring written to $COUT"
 done
 
 # --- Step 9: Write SP configs ---
