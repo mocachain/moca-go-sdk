@@ -21,6 +21,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog/log"
 
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
@@ -223,7 +224,12 @@ func (c *Client) CreateBucket(ctx context.Context, bucketName string, primaryAdd
 }
 
 func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*storage.IStorageSession, error) {
-	nonce, err := c.chainClient.GetNonce(context.Background())
+	privateKey, err := crypto.HexToECDSA(privKey)
+	if err != nil {
+		return nil, err
+	}
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+	nonce, err := c.evmClient.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +238,7 @@ func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
+	txOpts, err := CreateTxOpts(ctx, c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
 	if err != nil {
 		return nil, err
 	}

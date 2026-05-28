@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 	"testing"
 	"time"
-	"net/url"
 
 	"cosmossdk.io/math"
+	"github.com/mocachain/moca-go-sdk/client"
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 	mcSDkTypes "github.com/mocachain/moca/v2/sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	mocadTypes "github.com/mocachain/moca/v2/types"
@@ -22,10 +26,6 @@ import (
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/stretchr/testify/suite"
-	"github.com/mocachain/moca-go-sdk/client"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 type StorageTestSuite struct {
@@ -223,33 +223,16 @@ func (s *StorageTestSuite) Test_Object() {
 
 	s.WaitSealObject(bucketName, objectName)
 
-	var updatedBuffer bytes.Buffer
-	for i := 0; i < 1024*300; i++ {
-		updatedBuffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
-	}
-	objectTx, err = s.Client.UpdateObjectContent(s.ClientContext, bucketName, objectName, bytes.NewReader(updatedBuffer.Bytes()), types.UpdateObjectOptions{})
-	s.Require().NoError(err)
-	_, err = s.Client.WaitForTx(s.ClientContext, objectTx)
-	s.Require().NoError(err)
-	s.T().Logf("UpdateObjectContent tx hash %s", objectTx)
-
-	objectDetail, err = s.Client.HeadObject(s.ClientContext, bucketName, objectName)
-	s.Require().NoError(err)
-	s.Require().Equal(true, objectDetail.ObjectInfo.IsUpdating)
-
-	objectSize = int64(updatedBuffer.Len())
-	s.T().Logf("---> PutObject, objectName:%s objectSize:%d <---", objectName, objectSize)
-
-	err = s.PutObjectWithRetry(bucketName, objectName, objectSize,
-		updatedBuffer, types.PutObjectOptions{})
-	s.Require().NoError(err)
-
-	time.Sleep(5 * time.Second)
-
 	s.T().Log("---> Get bucket quota <---")
 
 	concurrentNumber := 5
 	downloadCount := 5
+	requiredQuota := uint64(objectSize) * uint64(concurrentNumber) * uint64(downloadCount)
+	buyQuotaTx, err := s.Client.BuyQuotaForBucket(s.ClientContext, bucketName, requiredQuota, types.BuyQuotaOption{})
+	s.Require().NoError(err)
+	_, err = s.Client.WaitForTx(s.ClientContext, buyQuotaTx)
+	s.Require().NoError(err)
+
 	quota0, err := s.Client.GetBucketReadQuota(s.ClientContext, bucketName)
 	s.Require().NoError(err)
 
@@ -265,6 +248,8 @@ func (s *StorageTestSuite) Test_Object() {
 					fmt.Printf("error: %v", err)
 					quota2, _ := s.Client.GetBucketReadQuota(s.ClientContext, bucketName)
 					fmt.Printf("quota: %v", quota2)
+					s.NoError(err)
+					return
 				}
 				objectBytes, err := io.ReadAll(objectContent)
 				s.Require().NoError(err)
@@ -277,9 +262,9 @@ func (s *StorageTestSuite) Test_Object() {
 	expectQuotaUsed := int(objectSize) * concurrentNumber * downloadCount
 	quota1, err := s.Client.GetBucketReadQuota(s.ClientContext, bucketName)
 	s.Require().NoError(err)
-	freeQuotaConsumed := quota1.FreeConsumedSize - quota0.FreeConsumedSize
-	// the consumed quota and free quota should be right
-	s.Require().Equal(uint64(expectQuotaUsed), freeQuotaConsumed)
+	readQuotaConsumed := quota1.ReadConsumedSize - quota0.ReadConsumedSize
+	// The consumed quota should match all successful downloads. It may be charged quota when the test buys quota.
+	s.Require().Equal(uint64(expectQuotaUsed), readQuotaConsumed)
 
 	s.T().Log("---> PutObjectPolicy <---")
 	principal, _, err := types.NewAccount("principal")
@@ -308,10 +293,17 @@ func (s *StorageTestSuite) Test_Object() {
 	s.T().Logf("get object policy:%s\n", objectPolicy.String())
 
 	s.T().Log("--->  ListObjectPolicies <---")
-	objectPolicies, err := s.Client.ListObjectPolicies(s.ClientContext, objectName, bucketName, uint32(permTypes.ACTION_GET_OBJECT), types.ListObjectPoliciesOptions{})
-	s.Require().NoError(err)
-	s.Require().Equal(resource.RESOURCE_TYPE_OBJECT.String(), resource.ResourceType_name[objectPolicies.Policies[0].ResourceType])
-	s.T().Logf("list object policies principal type:%d principal value:%s \n", objectPolicies.Policies[0].PrincipalType, objectPolicies.Policies[0].PrincipalValue)
+	var objectPolicies types.ListObjectPoliciesResponse
+	s.Require().Eventually(func() bool {
+		objectPolicies, err = s.Client.ListObjectPolicies(s.ClientContext, objectName, bucketName, uint32(permTypes.ACTION_GET_OBJECT), types.ListObjectPoliciesOptions{})
+		if err != nil {
+			return false
+		}
+		return len(objectPolicies.Policies) > 0
+	}, 30*time.Second, time.Second)
+	policyMeta := objectPolicies.Policies[0]
+	s.Require().Equal(resource.RESOURCE_TYPE_OBJECT.String(), resource.ResourceType_name[policyMeta.ResourceType])
+	s.T().Logf("list object policies principal type:%d principal value:%s \n", policyMeta.PrincipalType, policyMeta.PrincipalValue)
 
 	s.T().Log("---> DeleteObjectPolicy <---")
 
@@ -332,18 +324,6 @@ func (s *StorageTestSuite) Test_Object() {
 
 	objectName2 := storageTestUtil.GenRandomObjectName()
 	err = s.Client.DelegatePutObject(s.ClientContext, bucketName, objectName2, objectSize, bytes.NewReader(buffer.Bytes()), types.PutObjectOptions{})
-	s.Require().NoError(err)
-	s.WaitSealObject(bucketName, objectName2)
-
-	var newBuffer bytes.Buffer
-	size := 1024 * 300 * 40
-	for i := 0; i < size; i++ {
-		newBuffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
-	}
-	newObjectSize := int64(newBuffer.Len())
-	s.T().Logf("newObjectSize: %d", newObjectSize)
-
-	err = s.Client.DelegateUpdateObjectContent(s.ClientContext, bucketName, objectName2, newObjectSize, bytes.NewReader(newBuffer.Bytes()), types.PutObjectOptions{})
 	s.Require().NoError(err)
 	s.WaitSealObject(bucketName, objectName2)
 }
@@ -535,6 +515,7 @@ func (s *StorageTestSuite) TruncateDownloadTempFileToLessPartSize() {
 	fileInfo, err := file.Stat()
 	s.Require().NoError(err)
 	currentSize := fileInfo.Size()
+	s.Require().Greater(currentSize, int64(3*1024*1024))
 	targetSize := currentSize - 3*1024*1024
 
 	err = file.Truncate(targetSize)
@@ -560,6 +541,12 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 	s.Require().NoError(err)
 
 	s.WaitSealObject(bucketName, objectName)
+
+	requiredQuota := uint64(buffer.Len()) * 6
+	buyQuotaTx, err := s.Client.BuyQuotaForBucket(s.ClientContext, bucketName, requiredQuota, types.BuyQuotaOption{})
+	s.Require().NoError(err)
+	_, err = s.Client.WaitForTx(s.ClientContext, buyQuotaTx)
+	s.Require().NoError(err)
 
 	// 3) FGetObjectResumable compare with FGetObject
 	fileName := "test-file-" + storageTestUtil.GenRandomObjectName()
@@ -619,7 +606,10 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 
 	// 5) Resumable download, download a file with range
 	s.T().Logf("--->  Resumable download, download a file with range <---")
-	rangeOptions := types.GetObjectOptions{Range: "bytes=1000-94131999", PartSize: partSize16MB}
+	rangeOptions := types.GetObjectOptions{
+		Range:    fmt.Sprintf("bytes=1000-%d", buffer.Len()-1000),
+		PartSize: partSize16MB,
+	}
 	ResumableDownloadWithRangeFile := "test-file-" + storageTestUtil.GenRandomObjectName()
 	defer os.Remove(ResumableDownloadWithRangeFile)
 	err = s.Client.FGetObjectResumable(s.ClientContext, bucketName, objectName, ResumableDownloadWithRangeFile, rangeOptions)

@@ -38,14 +38,14 @@ func resolveEndpoint() string {
 	if value := os.Getenv("MOCA_E2E_ENDPOINT"); value != "" {
 		return value
 	}
-	return "http://localhost:26657"
+	return "http://127.0.0.1:26657"
 }
 
 func resolveEVMEndpoint() string {
 	if value := os.Getenv("MOCA_E2E_EVM_ENDPOINT"); value != "" {
 		return value
 	}
-	return "http://localhost:8545"
+	return "http://127.0.0.1:8545"
 }
 
 func resolveGRPCEndpoint() string {
@@ -184,11 +184,17 @@ func (s *BaseSuite) WaitSealObject(bucketName string, objectName string) {
 	)
 
 	// wait 300s
+	sealedCount := 0
 	for i := 0; i < 100; i++ {
 		objectDetail, err = s.Client.HeadObject(s.ClientContext, bucketName, objectName)
 		s.Require().NoError(err)
 		if objectDetail.ObjectInfo.GetObjectStatus() == storageTypes.OBJECT_STATUS_SEALED && !objectDetail.ObjectInfo.GetIsUpdating() {
-			break
+			sealedCount++
+			if sealedCount >= 2 {
+				break
+			}
+		} else {
+			sealedCount = 0
 		}
 		time.Sleep(3 * time.Second)
 	}
