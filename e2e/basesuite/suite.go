@@ -135,6 +135,25 @@ func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
 	return account, privateKey, nil
 }
 
+func loadFirstLocalAccount(candidates ...struct {
+	name string
+	home string
+}) (*types.Account, string, error) {
+	var lastErr error
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate.home); err != nil {
+			lastErr = err
+			continue
+		}
+		account, privateKey, err := loadLocalAccount(candidate.name, candidate.home)
+		if err == nil {
+			return account, privateKey, nil
+		}
+		lastErr = err
+	}
+	return nil, "", fmt.Errorf("load local account failed: %w", lastErr)
+}
+
 type BaseSuite struct {
 	suite.Suite
 	DefaultAccount    *types.Account
@@ -145,13 +164,16 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) NewChallengeClient() {
-	challengerHome := filepath.Join(LocalupDir, "challenger0")
-	if _, err := os.Stat(challengerHome); err != nil {
-		s.T().Logf("challenge client skipped: %s not found", challengerHome)
-		return
-	}
-
-	challengeAcc, priKey, err := loadLocalAccount("challenger0", filepath.Join(LocalupDir, "challenger0"))
+	challengeAcc, priKey, err := loadFirstLocalAccount(
+		struct {
+			name string
+			home string
+		}{"challenger0", filepath.Join(LocalupDir, "challenger0")},
+		struct {
+			name string
+			home string
+		}{"challenger-0", filepath.Join(LocalupDir, "challenger-0")},
+	)
 	s.Require().NoError(err)
 	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
 		DefaultAccount: challengeAcc,
@@ -162,7 +184,16 @@ func (s *BaseSuite) NewChallengeClient() {
 }
 
 func (s *BaseSuite) SetupSuite() {
-	account, priKey, err := loadLocalAccount("validator0", filepath.Join(LocalupDir, "validator0"))
+	account, priKey, err := loadFirstLocalAccount(
+		struct {
+			name string
+			home string
+		}{"validator0", filepath.Join(LocalupDir, "validator0")},
+		struct {
+			name string
+			home string
+		}{"validator-0", filepath.Join(LocalupDir, "validator-0")},
+	)
 	s.Require().NoError(err)
 	s.DefaultPrivateKey = priKey
 	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
