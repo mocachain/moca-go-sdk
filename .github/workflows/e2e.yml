@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: mocachain/moca-e2e
-          path: ../moca-e2e
+          path: moca-e2e
 
       - name: Install compose tooling
         run: |
@@ -62,7 +62,7 @@ jobs:
           yq --version
 
       - name: Start image-only local stack
-        working-directory: ../moca-e2e
+        working-directory: moca-e2e
         run: |
           cat > "${MOCA_E2E_TOPOLOGY}" <<'TOPOLOGY'
           chain:
@@ -147,7 +147,7 @@ jobs:
 
       - name: Run SDK e2e tests
         env:
-          MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/../moca-e2e/.docker-shared
+          MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/moca-e2e/.docker-shared
           MOCA_E2E_MOCAD: ${{ runner.temp }}/mocad-bin/mocad
           MOCA_E2E_GRPC_ENDPOINT: 127.0.0.1:19090
           MOCA_E2E_ENDPOINT: http://127.0.0.1:26657
@@ -162,13 +162,13 @@ jobs:
 
       - name: Dump image stack logs on failure
         if: failure()
-        working-directory: ../moca-e2e
+        working-directory: moca-e2e
         run: |
           docker compose -f docker-compose.generated.yml ps || true
           docker compose -f docker-compose.generated.yml logs || true
 
       - name: Stop image stack
         if: always()
-        working-directory: ../moca-e2e
+        working-directory: moca-e2e
         run: |
           ./scripts/teardown.sh local || true
