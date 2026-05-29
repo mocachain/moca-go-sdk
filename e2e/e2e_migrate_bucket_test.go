@@ -210,21 +210,25 @@ func (s *BucketMigrateTestSuite) waitUntilBucketMigrateFinish(bucketName string,
 		bucketInfo *storageTypes.BucketInfo
 		err        error
 	)
+	var primarySPID uint32
 
 	// wait 5 minutes
 	for i := 0; i < 100; i++ {
 		bucketInfo, err = s.Client.HeadBucket(s.ClientContext, bucketName)
 		s.T().Logf("HeadBucket: %s", bucketInfo)
 		s.Require().NoError(err)
-		if bucketInfo.BucketStatus != storageTypes.BUCKET_STATUS_MIGRATING {
+
+		family, err := s.Client.QueryVirtualGroupFamily(s.ClientContext, bucketInfo.GlobalVirtualGroupFamilyId)
+		s.Require().NoError(err)
+		s.T().Logf("VirtualGroupFamily: %s", family)
+		primarySPID = family.PrimarySpId
+		if primarySPID == destSP.GetId() {
 			break
 		}
 		time.Sleep(3 * time.Second)
 	}
 
-	family, err := s.Client.QueryVirtualGroupFamily(s.ClientContext, bucketInfo.GlobalVirtualGroupFamilyId)
-	s.Require().NoError(err)
-	s.Require().Equal(family.PrimarySpId, destSP.GetId())
+	s.Require().Equal(primarySPID, destSP.GetId())
 
 	return bucketInfo
 }
