@@ -436,6 +436,10 @@ done)
 }
 META
 
+# Files are created by the container user, but SDK e2e exports keys from the
+# host runner after compose starts. Keep the shared test volume readable.
+chmod -R a+rwX "$OUTPUT_DIR"
+
 echo ""
 echo "=== Genesis init complete ==="
 echo "  Output: $OUTPUT_DIR"
