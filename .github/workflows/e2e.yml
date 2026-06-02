@@ -78,7 +78,8 @@ jobs:
         run: |
           mkdir -p "${RUNNER_TEMP}/mocad-bin"
           cid=$(docker create --entrypoint /bin/sh "${MOCA_E2E_MOCAD_IMAGE}" -c true)
-          docker cp "$cid:/usr/bin/mocad" "${RUNNER_TEMP}/mocad-bin/mocad"
+          docker cp "$cid:/usr/local/bin/mocad" "${RUNNER_TEMP}/mocad-bin/mocad" \
+            || docker cp "$cid:/usr/bin/mocad" "${RUNNER_TEMP}/mocad-bin/mocad"
           docker rm "$cid"
           chmod +x "${RUNNER_TEMP}/mocad-bin/mocad"
 
