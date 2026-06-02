@@ -13,8 +13,8 @@ on:
 
 env:
   GOPRIVATE: github.com/mocachain
-  MOCA_E2E_MOCAD_IMAGE: ghcr.io/mocachain/mocad:v1.2.2-rc0
-  MOCA_E2E_SP_IMAGE: ghcr.io/mocachain/moca-storage-provider:1.2.0-rc7
+  MOCA_E2E_MOCAD_IMAGE: ghcr.io/mocachain/mocad:main
+  MOCA_E2E_SP_IMAGE: ghcr.io/mocachain/moca-storage-provider:main
 
 jobs:
   end-to-end-test:
