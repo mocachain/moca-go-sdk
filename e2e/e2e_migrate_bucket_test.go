@@ -44,22 +44,13 @@ func TestBucketMigrateTestSuiteTestSuite(t *testing.T) {
 }
 
 func (s *BucketMigrateTestSuite) requireMigrateAdminAvailable() {
-	if s.PrimarySP.Endpoint == "" {
-		s.T().Skip("bucket migrate tests require a primary SP endpoint")
-		return
-	}
+	s.Require().NotEmpty(s.PrimarySP.Endpoint, "bucket migrate tests require a primary SP endpoint")
 
 	adminAddr, err := bucketMigrateAdminAddr(s.PrimarySP.Endpoint)
-	if err != nil {
-		s.T().Skipf("bucket migrate tests require a resolvable SP admin endpoint: %v", err)
-		return
-	}
+	s.Require().NoError(err, "bucket migrate tests require a resolvable SP admin endpoint")
 
 	conn, err := net.DialTimeout("tcp", adminAddr, 2*time.Second)
-	if err != nil {
-		s.T().Skipf("bucket migrate tests require reachable SP admin endpoint %s: %v", adminAddr, err)
-		return
-	}
+	s.Require().NoError(err, "bucket migrate tests require reachable SP admin endpoint %s", adminAddr)
 	_ = conn.Close()
 }
 

@@ -53,22 +53,13 @@ func TestStorageTestSuite(t *testing.T) {
 }
 
 func (s *StorageTestSuite) requireStorageAdminAvailable() {
-	if s.PrimarySP.Endpoint == "" {
-		s.T().Skip("storage tests require a primary SP endpoint")
-		return
-	}
+	s.Require().NotEmpty(s.PrimarySP.Endpoint, "storage tests require a primary SP endpoint")
 
 	adminAddr, err := storageAdminAddr(s.PrimarySP.Endpoint)
-	if err != nil {
-		s.T().Skipf("storage tests require a resolvable SP admin endpoint: %v", err)
-		return
-	}
+	s.Require().NoError(err, "storage tests require a resolvable SP admin endpoint")
 
 	conn, err := net.DialTimeout("tcp", adminAddr, 2*time.Second)
-	if err != nil {
-		s.T().Skipf("storage tests require reachable SP admin endpoint %s: %v", adminAddr, err)
-		return
-	}
+	s.Require().NoError(err, "storage tests require reachable SP admin endpoint %s", adminAddr)
 	_ = conn.Close()
 }
 
