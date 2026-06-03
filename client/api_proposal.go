@@ -104,7 +104,7 @@ func (c *Client) VoteProposal(ctx context.Context, proposalID uint64, voteOption
 //
 // - ret2: Return error if the query failed, otherwise return nil.
 func (c *Client) GetProposal(ctx context.Context, proposalID uint64) (*govTypesV1.Proposal, error) {
-	resp, err := c.chainClient.GovQueryClientV1.Proposal(ctx, &govTypesV1.QueryProposalRequest{ProposalId: proposalID})
+	resp, err := c.chainClient.Proposal(ctx, &govTypesV1.QueryProposalRequest{ProposalId: proposalID})
 	if err != nil {
 		return nil, nil
 	}
