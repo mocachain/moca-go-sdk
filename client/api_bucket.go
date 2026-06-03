@@ -21,13 +21,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog/log"
 
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
 
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
-	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	gnfdCommonTypes "github.com/mocachain/moca/v2/types/common"
@@ -217,13 +217,18 @@ func (c *Client) CreateBucket(ctx context.Context, bucketName string, primaryAdd
 	// set the default txn broadcast mode as block mode
 	if opts.TxOpts == nil {
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
-		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
+		opts.TxOpts = &gnfdSdkTypes.TxOption{Mode: &broadcastMode}
 	}
 	return c.sendCreateBucketEvmTxn(ctx, createBucketMsg, opts)
 }
 
 func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*storage.IStorageSession, error) {
-	nonce, err := c.chainClient.GetNonce(context.Background())
+	privateKey, err := crypto.HexToECDSA(privKey)
+	if err != nil {
+		return nil, err
+	}
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+	nonce, err := c.evmClient.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +237,7 @@ func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
+	txOpts, err := CreateTxOpts(ctx, c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +482,7 @@ func (c *Client) UpdateBucketInfo(ctx context.Context, bucketName string, opts t
 	// set the default txn broadcast mode as block mode
 	if opts.TxOpts == nil {
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
-		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
+		opts.TxOpts = &gnfdSdkTypes.TxOption{Mode: &broadcastMode}
 	}
 	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opts.TxOpts)
 }
@@ -1169,7 +1174,7 @@ func (c *Client) MigrateBucket(ctx context.Context, bucketName string, dstPrimar
 	// set the default txn broadcast mode as block mode
 	if opts.TxOpts == nil {
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
-		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
+		opts.TxOpts = &gnfdSdkTypes.TxOption{Mode: &broadcastMode}
 	}
 	return c.sendMigrateBucketEvmTX(ctx, signedMsg)
 }
@@ -1212,7 +1217,7 @@ func (c *Client) CancelMigrateBucket(ctx context.Context, bucketName string, opt
 	// set the default txn broadcast mode as sync mode
 	if opts.TxOpts == nil {
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
-		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
+		opts.TxOpts = &gnfdSdkTypes.TxOption{Mode: &broadcastMode}
 	}
 
 	resp, err := c.BroadcastTx(ctx, []sdk.Msg{cancelMigrateBucketMsg}, opts.TxOpts)

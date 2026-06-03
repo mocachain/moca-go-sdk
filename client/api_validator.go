@@ -45,7 +45,7 @@ type IValidatorClient interface {
 //
 // - ret2: Return error when getting validators failed, otherwise return nil.
 func (c *Client) ListValidators(ctx context.Context, status string) (*stakeTypes.QueryValidatorsResponse, error) {
-	return c.chainClient.StakingQueryClient.Validators(ctx, &stakeTypes.QueryValidatorsRequest{Status: status})
+	return c.chainClient.Validators(ctx, &stakeTypes.QueryValidatorsRequest{Status: status})
 }
 
 // CreateValidator - Submit a proposal to Moca for creating a validator, and return a proposal id and tx hash.

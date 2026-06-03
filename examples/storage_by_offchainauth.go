@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -55,7 +54,7 @@ func TestStorageByOffChainAuth() {
 	var buffer bytes.Buffer
 	line := `0123456789`
 	for i := 0; i < objectSize/10; i++ {
-		buffer.WriteString(fmt.Sprintf("%s", line))
+		buffer.WriteString(line)
 	}
 
 	// create and put object
@@ -76,6 +75,7 @@ func TestStorageByOffChainAuth() {
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
 	handleErr(err, "GetObject")
 	objectBytes, err := io.ReadAll(reader)
+	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, buffer.Bytes()) {
 		handleErr(errors.New("download content not same"), "GetObject")
 	}
@@ -87,6 +87,7 @@ func TestStorageByOffChainAuth() {
 		MaxKeys:           10,
 		Endpoint:          httpsAddr,
 	})
+	handleErr(err, "ListObjects")
 	log.Println("list objects result:")
 	for _, obj := range objects.Objects {
 		i := obj.ObjectInfo
@@ -99,6 +100,7 @@ func TestStorageByOffChainAuth() {
 		Endpoint:  httpsAddr,
 		SPAddress: "",
 	})
+	handleErr(err, "ListObjectsByObjectID")
 	log.Printf("list objects by ids result: %v\n", objects2)
 	for _, object := range objects2.Objects {
 		if object != nil {
@@ -111,6 +113,7 @@ func TestStorageByOffChainAuth() {
 		Endpoint:  httpsAddr,
 		SPAddress: "",
 	})
+	handleErr(err, "ListBucketsByBucketID")
 	log.Printf("list buckets by ids result: %v\n", buckets)
 	for _, bucket := range buckets.Buckets {
 		if bucket != nil {
