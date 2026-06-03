@@ -5,11 +5,19 @@ on:
     branches:
       - main
       - develop
+    paths:
+      - ".github/e2e/**"
+      - ".github/workflows/e2e.yml"
+      - "e2e/**"
 
   pull_request:
     branches:
       - main
       - develop
+    paths:
+      - ".github/e2e/**"
+      - ".github/workflows/e2e.yml"
+      - "e2e/**"
 
 env:
   MocaTag: v1.6.0
