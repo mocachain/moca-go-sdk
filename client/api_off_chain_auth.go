@@ -298,7 +298,7 @@ func (c *Client) DeleteUserPublicKeyV2(spEndpoint string, domain string, publicK
 		return false, err
 	}
 	if (nil != resp) && (nil != resp.Body) {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 	}
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
@@ -327,7 +327,7 @@ func httpGetWithHeader(url string, header map[string]string) (string, error) {
 		return "", err
 	}
 	if (nil != resp) && (nil != resp.Body) {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 	}
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
@@ -352,7 +352,7 @@ func httpPostWithHeader(url string, jsonStr string, header map[string]string) (s
 		return "", err
 	}
 	if (nil != resp) && (nil != resp.Body) {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 	}
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
