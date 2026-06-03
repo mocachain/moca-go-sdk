@@ -26,7 +26,6 @@ import (
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
 
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 
 	mocadTypes "github.com/mocachain/moca/v2/types"
@@ -482,7 +481,8 @@ func (c *Client) UpdateBucketInfo(ctx context.Context, bucketName string, opts t
 	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opts.TxOpts)
 }
 
-func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo, opt *gnfdSdkTypes.TxOption) (string, error) {
+func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo, opt *gnfdsdk.TxOption) (string, error) {
+	_ = opt
 	session, err := c.createStorageEvmSession(ctx, c.privateKey)
 	if err != nil {
 		return "", err

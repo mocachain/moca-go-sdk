@@ -12,11 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/mocachain/moca-go-sdk/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
-	"github.com/mocachain/moca/v2/x/evm/precompiles/bank"
 	paymentTypes "github.com/mocachain/moca/v2/x/payment/types"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IAccountClient - Client APIs for operating Moca accounts.
@@ -25,11 +24,11 @@ type IAccountClient interface {
 	GetDefaultAccount() (*types.Account, error)
 	MustGetDefaultAccount() *types.Account
 
-	GetAccount(ctx context.Context, address string) (authTypes.AccountI, error)
+	GetAccount(ctx context.Context, address string) (sdk.AccountI, error)
 	GetAccountBalance(ctx context.Context, address string) (*sdk.Coin, error)
 	GetPaymentAccount(ctx context.Context, address string) (*paymentTypes.PaymentAccount, error)
-	GetModuleAccounts(ctx context.Context) ([]authTypes.ModuleAccountI, error)
-	GetModuleAccountByName(ctx context.Context, name string) (authTypes.ModuleAccountI, error)
+	GetModuleAccounts(ctx context.Context) ([]sdk.ModuleAccountI, error)
+	GetModuleAccountByName(ctx context.Context, name string) (sdk.ModuleAccountI, error)
 	GetPaymentAccountsByOwner(ctx context.Context, owner string) ([]*paymentTypes.PaymentAccount, error)
 
 	CreatePaymentAccount(ctx context.Context, address string, txOption gnfdSdkTypes.TxOption) (string, error)
@@ -79,7 +78,7 @@ func (c *Client) MustGetDefaultAccount() *types.Account {
 // - ret1: The account interface for the given address.
 //
 // - ret2: Return error when getting account failed, otherwise return nil.
-func (c *Client) GetAccount(ctx context.Context, address string) (authTypes.AccountI, error) {
+func (c *Client) GetAccount(ctx context.Context, address string) (sdk.AccountI, error) {
 	accAddress, err := sdk.AccAddressFromHexUnsafe(address)
 	if err != nil {
 		return nil, err
@@ -144,7 +143,7 @@ func (c *Client) sendCreatePaymentAccountEvmTxn(ctx context.Context) (string, er
 // - ret1: The account interface for the given module name.
 //
 // - ret2: Return error when getting failed, otherwise return nil.
-func (c *Client) GetModuleAccountByName(ctx context.Context, name string) (authTypes.ModuleAccountI, error) {
+func (c *Client) GetModuleAccountByName(ctx context.Context, name string) (sdk.ModuleAccountI, error) {
 	response, err := c.chainClient.ModuleAccountByName(ctx, &authTypes.QueryModuleAccountByNameRequest{Name: name})
 	if err != nil {
 		return nil, err
@@ -168,12 +167,12 @@ func (c *Client) GetModuleAccountByName(ctx context.Context, name string) (authT
 // - ret1: The account interface lists for all the module accounts.
 //
 // - ret2: Return error when getting failed, otherwise return nil.
-func (c *Client) GetModuleAccounts(ctx context.Context) ([]authTypes.ModuleAccountI, error) {
+func (c *Client) GetModuleAccounts(ctx context.Context) ([]sdk.ModuleAccountI, error) {
 	response, err := c.chainClient.ModuleAccounts(ctx, &authTypes.QueryModuleAccountsRequest{})
 	if err != nil {
 		return nil, err
 	}
-	var accounts []authTypes.ModuleAccountI
+	var accounts []sdk.ModuleAccountI
 	for _, accValue := range response.Accounts {
 		moduleAccount := authTypes.ModuleAccount{}
 		err = c.chainClient.GetCodec().Unmarshal(accValue.Value, &moduleAccount)
@@ -200,7 +199,7 @@ func (c *Client) GetAccountBalance(ctx context.Context, address string) (*sdk.Co
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.chainClient.BankQueryClient.Balance(ctx, &bankTypes.QueryBalanceRequest{Address: accAddress.String(), Denom: gnfdSdkTypes.Denom})
+	response, err := c.chainClient.Balance(ctx, &bankTypes.QueryBalanceRequest{Address: accAddress.String(), Denom: gnfdSdkTypes.Denom})
 	if err != nil {
 		return nil, err
 	}
@@ -312,28 +311,6 @@ func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.I
 		return "", err
 	}
 	return signedTx.Hash().String(), nil
-}
-
-func (c *Client) createBankEvmSession(ctx context.Context, privKey string) (*bank.IBankSession, error) {
-	nonce, err := c.chainClient.GetNonce(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	chainId, err := c.evmClient.ChainID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
-	if err != nil {
-		return nil, err
-	}
-
-	session, err := CreateBankSession(c.evmClient, *txOpts, mocadTypes.BankAddress)
-	if err != nil {
-		return nil, err
-	}
-	return session, nil
 }
 
 // MultiTransfer - Transfer amoca from sender to multiple receivers.

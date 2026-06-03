@@ -9,9 +9,9 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 )
 
 func TestCrossChainGOv() {
@@ -31,7 +31,9 @@ func TestCrossChainGOv() {
 	if err != nil {
 		log.Fatalf("unable to submit proposal , %v", err)
 	}
-	cli.WaitForTx(ctx, txHash)
+	if _, err = cli.WaitForTx(ctx, txHash); err != nil {
+		log.Fatalf("unable to confirm proposal tx, %v", err)
+	}
 
 	// Have validators to vote for the proposal
 	// there should be enough validators to vote for the proposal
@@ -39,7 +41,12 @@ func TestCrossChainGOv() {
 	validatorAcct, _ := types.NewAccountFromPrivateKey("validator", validatorPrivKey)
 	cli.SetDefaultAccount(validatorAcct)
 	voteTxHash, err := cli.VoteProposal(ctx, proposalID, govv1.OptionYes, types.VoteProposalOptions{})
-	cli.WaitForTx(ctx, voteTxHash)
+	if err != nil {
+		log.Fatalf("unable to submit vote, %v", err)
+	}
+	if _, err = cli.WaitForTx(ctx, voteTxHash); err != nil {
+		log.Fatalf("unable to confirm vote tx, %v", err)
+	}
 }
 
 // Suppose we want to modify a parameter of contract 0x40eC91B82D7aCAA065d54B08D751505D479b0E43, fill in CrossChainParamsChange as below
@@ -61,16 +68,3 @@ func parameterChange() sdk.Msg {
 // Suppose the current bucketHub contract is 0x111568F484E4b8759a3aeC6aF11EA17BC18479A8, objectHub 0x2F0cf555a0E1dAE8CDacef66D8244E49Ee72Ad2D, groupHub 0x40eC91B82D7aCAA065d54B08D751505D479b0E43.
 // respectively, we want to upgrade to 0x82CDc0BDb92Af93F301332Ed05F4F844c7c74FD6, 0xd00137EABe7CC9434EA70Cde29f9DB5f65a335f7, 0xc11bFABfFE9e1A4A1557f1494cb74Cc86AB69441.
 // fill this the MsgUpdateCrossChainParams as below
-func upgradeContract() sdk.Msg {
-	govAcctAddress := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-	msgUpdateParams := &govv1.MsgUpdateCrossChainParams{
-		Authority: govAcctAddress,
-		Params: govv1.CrossChainParamsChange{
-			Key:     "upgrade", // The key specify the purpose of the governance. It must be ""upgrade" for upgrade contract
-			Values:  []string{"0x82CDc0BDb92Af93F301332Ed05F4F844c7c74FD6", "0xd00137EABe7CC9434EA70Cde29f9DB5f65a335f7", "0xc11bFABfFE9e1A4A1557f1494cb74Cc86AB69441"},
-			Targets: []string{"0x111568F484E4b8759a3aeC6aF11EA17BC18479A8", "0x2F0cf555a0E1dAE8CDacef66D8244E49Ee72Ad2D", "0x40eC91B82D7aCAA065d54B08D751505D479b0E43"},
-		},
-		DestChainId: 97, // Dest BSC chain ID
-	}
-	return msgUpdateParams
-}
