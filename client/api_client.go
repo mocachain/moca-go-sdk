@@ -23,14 +23,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 
-	sdkclient "github.com/mocachain/moca/v2/sdk/client"
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
-	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	types2 "github.com/mocachain/moca/v2/x/virtualgroup/types"
 	hashlib "github.com/mocachain/moca-common/go/hash"
 	httplib "github.com/mocachain/moca-common/go/http"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
+	sdkclient "github.com/mocachain/moca/v2/sdk/client"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
+	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+	types2 "github.com/mocachain/moca/v2/x/virtualgroup/types"
 )
 
 // IClient - Declare all Moca SDK Client APIs, including APIs for interacting with Moca Blockchain and SPs.
@@ -578,7 +578,7 @@ func (c *Client) doAPI(ctx context.Context, req *http.Request, meta requestMeta,
 			c.dumpSPMsg(req, resp)
 		}
 		if !closeBody {
-			resp.Body.Close()
+			utils.CloseResponse(resp)
 		}
 		return resp, err
 	}
@@ -638,11 +638,12 @@ func (c *Client) generateURL(bucketName string, objectName string, relativePath 
 	if adminInfo.isAdminAPI {
 		var prefix string
 		// check the version and generate the url by the version
-		if adminInfo.adminVersion == types.AdminV1Version {
+		switch adminInfo.adminVersion {
+		case types.AdminV1Version:
 			prefix = types.AdminURLPrefix + types.AdminURLV1Version
-		} else if adminInfo.adminVersion == types.AdminV2Version {
+		case types.AdminV2Version:
 			prefix = types.AdminURLPrefix + types.AdminURLV2Version
-		} else {
+		default:
 			return nil, fmt.Errorf("invalid admin version %d", adminInfo.adminVersion)
 		}
 		urlStr = scheme + "://" + host + prefix + "/"

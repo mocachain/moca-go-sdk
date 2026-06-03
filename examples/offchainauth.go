@@ -32,6 +32,7 @@ func TestOffChainAuth() {
 		Delimiter:         "/",
 		MaxKeys:           10,
 	})
+	handleErr(err, "ListObjects")
 	log.Println("list objects result:")
 	for _, obj := range objects.Objects {
 		i := obj.ObjectInfo

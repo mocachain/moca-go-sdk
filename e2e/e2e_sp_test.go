@@ -8,12 +8,11 @@ import (
 	"cosmossdk.io/math"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	govTypesV1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	types2 "github.com/mocachain/moca/v2/sdk/types"
-	spTypes "github.com/mocachain/moca/v2/x/sp/types"
-	types3 "github.com/mocachain/moca/v2/x/sp/types"
-	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"
+	types2 "github.com/mocachain/moca/v2/sdk/types"
+	spTypes "github.com/mocachain/moca/v2/x/sp/types"
+	"github.com/stretchr/testify/suite"
 )
 
 type SPTestSuite struct {
@@ -94,7 +93,7 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 		hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
 		"https://sp0.moca.io",
 		math.NewIntWithDecimal(10000, types2.DecimalMOCA),
-		types3.Description{Moniker: "test"},
+		spTypes.Description{Moniker: "test"},
 		types.CreateStorageProviderOptions{ProposalMetaData: "create", ProposalTitle: "test", ProposalSummary: "test"})
 	s.Require().NoError(err)
 
