@@ -654,7 +654,9 @@ func (c *Client) FPutObject(ctx context.Context, bucketName, objectName, filePat
 	if err != nil {
 		return err
 	}
-	defer func() { _ = fReader.Close() }()
+	defer func() {
+		_ = fReader.Close()
+	}()
 
 	// Save the file stat.
 	stat, err := fReader.Stat()
@@ -802,12 +804,17 @@ func (c *Client) FGetObject(ctx context.Context, bucketName, objectName, filePat
 	if err != nil {
 		return err
 	}
-	defer func() { _ = body.Close() }()
+	defer func() {
+		_ = body.Close()
+	}()
 
 	_, err = io.Copy(fd, body)
-	_ = fd.Close()
+	closeErr := fd.Close()
 	if err != nil {
 		return err
+	}
+	if closeErr != nil {
+		return closeErr
 	}
 
 	return nil
@@ -914,7 +921,9 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 			if err != nil {
 				return err
 			}
-			defer func() { _ = file.Close() }()
+			defer func() {
+				_ = file.Close()
+			}()
 
 			err = file.Truncate(truncateOffset)
 			if err != nil {
@@ -965,7 +974,9 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 		if err != nil {
 			return err
 		}
-		defer func() { _ = rd.Close() }()
+			defer func() {
+				_ = rd.Close()
+			}()
 
 		_, err = io.Copy(pw, rd)
 		log.Debug().Msg(fmt.Sprintf("get object for segment Range: %s, current partStartOffset: %d, segNum: %d", objectOption.Range, partStartOffset, segNum))
@@ -978,7 +989,9 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 		segNum++
 	}
 
-	_ = fd.Close()
+	if err = fd.Close(); err != nil {
+		return err
+	}
 
 	// 4) rename temp file
 	err = os.Rename(tempFilePath, filePath)

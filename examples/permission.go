@@ -5,10 +5,10 @@ import (
 	"log"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
+	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 )
 
 // it is the example of basic permission SDKs usage
@@ -105,6 +105,6 @@ func TestPermission() {
 	}
 
 	// delete object permission
-	policyTx, err = cli.DeleteObjectPolicy(ctx, bucketName, objectName, principalStr, types.DeletePolicyOption{})
+	_, err = cli.DeleteObjectPolicy(ctx, bucketName, objectName, principalStr, types.DeletePolicyOption{})
 	handleErr(err, "DeleteObjectPolicy")
 }

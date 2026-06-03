@@ -13,13 +13,13 @@ func CompareFiles(fileL string, fileR string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer finL.Close()
+	defer func() { _ = finL.Close() }()
 
 	finR, err := os.Open(fileR)
 	if err != nil {
 		return false, err
 	}
-	defer finR.Close()
+	defer func() { _ = finR.Close() }()
 
 	statL, err := finL.Stat()
 	if err != nil {
@@ -44,12 +44,12 @@ func CompareFiles(fileL string, fileR string) (bool, error) {
 	bufR := make([]byte, size)
 	for {
 		n, _ := finL.Read(bufL)
-		if 0 == n {
+		if n == 0 {
 			break
 		}
 
 		n, _ = finR.Read(bufR)
-		if 0 == n {
+		if n == 0 {
 			break
 		}
 

@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/mocachain/moca-go-sdk/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	paymentTypes "github.com/mocachain/moca/v2/x/payment/types"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IAccountClient - Client APIs for operating Moca accounts.
@@ -24,11 +24,14 @@ type IAccountClient interface {
 	GetDefaultAccount() (*types.Account, error)
 	MustGetDefaultAccount() *types.Account
 
-	GetAccount(ctx context.Context, address string) (sdk.AccountI, error)
+	//nolint:staticcheck // Preserve the public SDK interface; migrate in a dedicated compatibility PR.
+	GetAccount(ctx context.Context, address string) (authTypes.AccountI, error)
 	GetAccountBalance(ctx context.Context, address string) (*sdk.Coin, error)
 	GetPaymentAccount(ctx context.Context, address string) (*paymentTypes.PaymentAccount, error)
-	GetModuleAccounts(ctx context.Context) ([]sdk.ModuleAccountI, error)
-	GetModuleAccountByName(ctx context.Context, name string) (sdk.ModuleAccountI, error)
+	//nolint:staticcheck // Preserve the public SDK interface; migrate in a dedicated compatibility PR.
+	GetModuleAccounts(ctx context.Context) ([]authTypes.ModuleAccountI, error)
+	//nolint:staticcheck // Preserve the public SDK interface; migrate in a dedicated compatibility PR.
+	GetModuleAccountByName(ctx context.Context, name string) (authTypes.ModuleAccountI, error)
 	GetPaymentAccountsByOwner(ctx context.Context, owner string) ([]*paymentTypes.PaymentAccount, error)
 
 	CreatePaymentAccount(ctx context.Context, address string, txOption gnfdSdkTypes.TxOption) (string, error)
@@ -78,7 +81,9 @@ func (c *Client) MustGetDefaultAccount() *types.Account {
 // - ret1: The account interface for the given address.
 //
 // - ret2: Return error when getting account failed, otherwise return nil.
-func (c *Client) GetAccount(ctx context.Context, address string) (sdk.AccountI, error) {
+//
+//nolint:staticcheck // Preserve the public SDK interface; migrate in a dedicated compatibility PR.
+func (c *Client) GetAccount(ctx context.Context, address string) (authTypes.AccountI, error) {
 	accAddress, err := sdk.AccAddressFromHexUnsafe(address)
 	if err != nil {
 		return nil, err
@@ -143,7 +148,9 @@ func (c *Client) sendCreatePaymentAccountEvmTxn(ctx context.Context) (string, er
 // - ret1: The account interface for the given module name.
 //
 // - ret2: Return error when getting failed, otherwise return nil.
-func (c *Client) GetModuleAccountByName(ctx context.Context, name string) (sdk.ModuleAccountI, error) {
+//
+//nolint:staticcheck // Preserve the public SDK interface; migrate in a dedicated compatibility PR.
+func (c *Client) GetModuleAccountByName(ctx context.Context, name string) (authTypes.ModuleAccountI, error) {
 	response, err := c.chainClient.ModuleAccountByName(ctx, &authTypes.QueryModuleAccountByNameRequest{Name: name})
 	if err != nil {
 		return nil, err
@@ -167,12 +174,14 @@ func (c *Client) GetModuleAccountByName(ctx context.Context, name string) (sdk.M
 // - ret1: The account interface lists for all the module accounts.
 //
 // - ret2: Return error when getting failed, otherwise return nil.
-func (c *Client) GetModuleAccounts(ctx context.Context) ([]sdk.ModuleAccountI, error) {
+//
+//nolint:staticcheck // Preserve the public SDK interface; migrate in a dedicated compatibility PR.
+func (c *Client) GetModuleAccounts(ctx context.Context) ([]authTypes.ModuleAccountI, error) {
 	response, err := c.chainClient.ModuleAccounts(ctx, &authTypes.QueryModuleAccountsRequest{})
 	if err != nil {
 		return nil, err
 	}
-	var accounts []sdk.ModuleAccountI
+	var accounts []authTypes.ModuleAccountI
 	for _, accValue := range response.Accounts {
 		moduleAccount := authTypes.ModuleAccount{}
 		err = c.chainClient.GetCodec().Unmarshal(accValue.Value, &moduleAccount)

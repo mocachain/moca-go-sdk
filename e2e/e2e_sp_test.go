@@ -8,11 +8,11 @@ import (
 	"cosmossdk.io/math"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	govTypesV1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/types"
 	types2 "github.com/mocachain/moca/v2/sdk/types"
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	"github.com/stretchr/testify/suite"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 const governanceMinDeposit = 10
@@ -92,16 +92,16 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 	blsProofBz, err := s.BlsAcc.GetKeyManager().Sign(tmhash.Sum(s.BlsAcc.GetKeyManager().PubKey().Bytes()))
 	s.Require().NoError(err)
 	proposalID, txHash, err := s.Client.CreateStorageProvider(s.ClientContext, s.FundingAcc.GetAddress().String(), s.SealAcc.GetAddress().String(), s.ApprovalAcc.GetAddress().String(), s.GcAcc.GetAddress().String(), s.MaintenanceAcc.GetAddress().String(),
-		hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
-		"https://sp0.moca.io",
-		math.NewIntWithDecimal(10000, types2.DecimalMOCA),
-		spTypes.Description{Moniker: "test"},
-		types.CreateStorageProviderOptions{
-			ProposalDepositAmount: math.NewIntWithDecimal(governanceMinDeposit, types2.DecimalMOCA),
-			ProposalMetaData:      "create",
-			ProposalTitle:         "test",
-			ProposalSummary:       "test",
-		})
+			hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
+			"https://sp0.moca.io",
+			math.NewIntWithDecimal(10000, types2.DecimalMOCA),
+			spTypes.Description{Moniker: "test"},
+			types.CreateStorageProviderOptions{
+				ProposalDepositAmount: math.NewIntWithDecimal(governanceMinDeposit, types2.DecimalMOCA),
+				ProposalMetaData:      "create",
+				ProposalTitle:         "test",
+				ProposalSummary:       "test",
+			})
 	s.Require().NoError(err)
 
 	createTx, err := s.Client.WaitForTx(s.ClientContext, txHash)
