@@ -9,8 +9,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govTypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govTypesV1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca-go-sdk/types"
+	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 )
 
 type IProposalClient interface {
@@ -106,7 +106,7 @@ func (c *Client) VoteProposal(ctx context.Context, proposalID uint64, voteOption
 func (c *Client) GetProposal(ctx context.Context, proposalID uint64) (*govTypesV1.Proposal, error) {
 	resp, err := c.chainClient.Proposal(ctx, &govTypesV1.QueryProposalRequest{ProposalId: proposalID})
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return resp.Proposal, nil
 }
