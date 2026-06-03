@@ -105,6 +105,6 @@ func TestPermission() {
 	}
 
 	// delete object permission
-	policyTx, err = cli.DeleteObjectPolicy(ctx, bucketName, objectName, principalStr, types.DeletePolicyOption{})
+	_, err = cli.DeleteObjectPolicy(ctx, bucketName, objectName, principalStr, types.DeletePolicyOption{})
 	handleErr(err, "DeleteObjectPolicy")
 }

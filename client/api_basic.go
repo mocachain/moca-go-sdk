@@ -81,7 +81,7 @@ func (c *Client) EnableTrace(output io.Writer, onlyTraceErr bool) {
 //
 // - ret3: Return error when the request failed, otherwise return nil.
 func (c *Client) GetNodeInfo(ctx context.Context) (*p2p.DefaultNodeInfo, *cmtservice.VersionInfo, error) {
-	nodeInfoResponse, err := c.chainClient.TmClient.GetNodeInfo(ctx, &cmtservice.GetNodeInfoRequest{})
+	nodeInfoResponse, err := c.chainClient.GetNodeInfo(ctx, &cmtservice.GetNodeInfoRequest{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -149,7 +149,7 @@ func (c *Client) BroadcastRawTx(ctx context.Context, txBytes []byte, sync bool) 
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) SimulateRawTx(ctx context.Context, txBytes []byte, opts ...grpc.CallOption) (*tx.SimulateResponse, error) {
-	simulateResponse, err := c.chainClient.TxClient.Simulate(
+	simulateResponse, err := c.chainClient.Simulate(
 		ctx,
 		&tx.SimulateRequest{
 			TxBytes: txBytes,
@@ -238,7 +238,7 @@ func (c *Client) WaitForNBlocks(ctx context.Context, n int64) error {
 	if err != nil {
 		return err
 	}
-	return c.WaitForBlockHeight(ctx, start.Header.Height+n)
+	return c.WaitForBlockHeight(ctx, start.Height+n)
 }
 
 // WaitForTx - Wait for a transaction to be confirmed onchian, if transaction not found in current block, wait for the next block. API ends when a transaction is found or context is canceled.

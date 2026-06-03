@@ -99,7 +99,7 @@ func (s *BucketMigrateTestSuite) CreateObjects(bucketName string, count int) ([]
 		line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 		// Create 1MiB content where each line contains 1024 characters.
 		for n := 0; n < 1024*3; n++ {
-			buffer.WriteString(fmt.Sprintf("[%05d] %s\n", n, line))
+			fmt.Fprintf(&buffer, "[%05d] %s\n", n, line)
 		}
 		objectName := storageTestUtil.GenRandomObjectName()
 		s.T().Logf("---> CreateObject and HeadObject, bucket name:%s, object name:%s <---", bucketName, objectName)

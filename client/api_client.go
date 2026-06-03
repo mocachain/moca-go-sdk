@@ -588,7 +588,7 @@ func (c *Client) doAPI(ctx context.Context, req *http.Request, meta requestMeta,
 			c.dumpSPMsg(req, resp)
 		}
 		if !closeBody {
-			resp.Body.Close()
+			utils.CloseResponse(resp)
 		}
 		return resp, err
 	}
@@ -648,11 +648,12 @@ func (c *Client) generateURL(bucketName string, objectName string, relativePath 
 	if adminInfo.isAdminAPI {
 		var prefix string
 		// check the version and generate the url by the version
-		if adminInfo.adminVersion == types.AdminV1Version {
+		switch adminInfo.adminVersion {
+		case types.AdminV1Version:
 			prefix = types.AdminURLPrefix + types.AdminURLV1Version
-		} else if adminInfo.adminVersion == types.AdminV2Version {
+		case types.AdminV2Version:
 			prefix = types.AdminURLPrefix + types.AdminURLV2Version
-		} else {
+		default:
 			return nil, fmt.Errorf("invalid admin version %d", adminInfo.adminVersion)
 		}
 		urlStr = scheme + "://" + host + prefix + "/"

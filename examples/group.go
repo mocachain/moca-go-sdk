@@ -63,6 +63,7 @@ func TestGroup() {
 
 	// list groups
 	groups, err := cli.ListGroup(ctx, "e", "t", types.ListGroupsOptions{SourceType: "SOURCE_TYPE_ORIGIN", Limit: 10, Offset: 0, Endpoint: httpsAddr, SPAddress: ""})
+	handleErr(err, "ListGroup")
 	log.Println("list groups result:")
 	for _, group := range groups.Groups {
 		log.Printf("name: %s, source type: %s\n", group.Group.GroupName, group.Group.SourceType)
@@ -75,6 +76,7 @@ func TestGroup() {
 		Endpoint:   httpsAddr,
 		SPAddress:  "",
 	})
+	handleErr(err, "ListGroupMembers")
 	log.Println("list groups result:")
 	for _, group := range groupMembers.Groups {
 		log.Printf("name: %s, source type: %s\n", group.Group.GroupName, group.Group.SourceType)
@@ -87,6 +89,7 @@ func TestGroup() {
 		Endpoint:   httpsAddr,
 		SPAddress:  "",
 	})
+	handleErr(err, "ListGroupsByAccount")
 	log.Println("list groups result:")
 	for _, group := range userGroups.Groups {
 		log.Printf("name: %s, source type: %s\n", group.Group.GroupName, group.Group.SourceType)
@@ -99,6 +102,7 @@ func TestGroup() {
 		Endpoint:   httpsAddr,
 		SPAddress:  "",
 	})
+	handleErr(err, "ListGroupsByOwner")
 	log.Println("list groups result:")
 	for _, group := range ownedGroups.Groups {
 		log.Printf("name: %s, source type: %s\n", group.Group.GroupName, group.Group.SourceType)
@@ -110,6 +114,7 @@ func TestGroup() {
 		Endpoint:  httpsAddr,
 		SPAddress: "",
 	})
+	handleErr(err, "ListGroupsByGroupID")
 	log.Println("list groups result:")
 	for _, group := range groupList.Groups {
 		if group != nil {
