@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -106,7 +107,10 @@ func (c *Client) VoteProposal(ctx context.Context, proposalID uint64, voteOption
 func (c *Client) GetProposal(ctx context.Context, proposalID uint64) (*govTypesV1.Proposal, error) {
 	resp, err := c.chainClient.GovQueryClientV1.Proposal(ctx, &govTypesV1.QueryProposalRequest{ProposalId: proposalID})
 	if err != nil {
-		return nil, nil
+		return nil, err
+	}
+	if resp == nil || resp.Proposal == nil {
+		return nil, fmt.Errorf("proposal %d not found in query response", proposalID)
 	}
 	return resp.Proposal, nil
 }

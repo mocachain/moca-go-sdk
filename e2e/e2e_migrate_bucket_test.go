@@ -73,7 +73,7 @@ func bucketMigrateAdminAddr(endpoint string) (string, error) {
 	case "sp-2":
 		return "127.0.0.1:9035", nil
 	default:
-		return net.JoinHostPort(host, "9033"), nil
+		return "", fmt.Errorf("unsupported non-local SP endpoint %q for local bucket migrate e2e", endpoint)
 	}
 }
 
@@ -164,7 +164,7 @@ func (s *BucketMigrateTestSuite) MustCreateBucket(visibility storageTypes.Visibi
 }
 
 func (s *BucketMigrateTestSuite) SelectDestSP(objectDetail *types.ObjectDetail) *spTypes.StorageProvider {
-	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
+	sps, err := s.localReachableStorageProviders()
 	s.Require().NoError(err)
 	expectedGVGSPCount := s.expectedGVGSPCount()
 
@@ -188,6 +188,28 @@ func (s *BucketMigrateTestSuite) SelectDestSP(objectDetail *types.ObjectDetail) 
 	}
 
 	return destSP
+}
+
+func (s *BucketMigrateTestSuite) localReachableStorageProviders() ([]spTypes.StorageProvider, error) {
+	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
+	if err != nil {
+		return nil, err
+	}
+
+	reachable := make([]spTypes.StorageProvider, 0, len(sps))
+	for _, sp := range sps {
+		adminAddr, err := bucketMigrateAdminAddr(sp.Endpoint)
+		if err != nil {
+			continue
+		}
+		conn, err := net.DialTimeout("tcp", adminAddr, 2*time.Second)
+		if err != nil {
+			continue
+		}
+		_ = conn.Close()
+		reachable = append(reachable, sp)
+	}
+	return reachable, nil
 }
 
 func (s *BucketMigrateTestSuite) expectedGVGSPCount() int {
@@ -337,7 +359,7 @@ func (s *BucketMigrateTestSuite) Test_Empty_Bucket_Migrate_Simple_Case() {
 
 	time.Sleep(5 * time.Second)
 	// select a storage provider to migrate
-	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
+	sps, err := s.localReachableStorageProviders()
 	s.Require().NoError(err)
 	expectedGVGSPCount := s.expectedGVGSPCount()
 	if expectedGVGSPCount >= len(sps) {
@@ -380,7 +402,7 @@ func (s *BucketMigrateTestSuite) Test_Empty_Bucket_Migrate_Simple_Case() {
 }
 
 func spsMust(s *BucketMigrateTestSuite) []spTypes.StorageProvider {
-	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
+	sps, err := s.localReachableStorageProviders()
 	s.Require().NoError(err)
 	return sps
 }
@@ -426,7 +448,7 @@ func (s *BucketMigrateTestSuite) challengeEndpoint(objectDetail *types.ObjectDet
 		spID = objectDetail.GlobalVirtualGroup.SecondarySpIds[redundancyIndex]
 	}
 
-	sps, err := s.Client.ListStorageProviders(s.ClientContext, true)
+	sps, err := s.localReachableStorageProviders()
 	s.Require().NoError(err)
 	for _, sp := range sps {
 		if sp.GetId() == spID {
