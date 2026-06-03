@@ -1,26 +1,32 @@
 package basesuite
 
 import (
-	"bufio"
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/mocachain/moca/v2/sdk/keys"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/client"
 	"github.com/mocachain/moca-go-sdk/types"
+	"github.com/stretchr/testify/suite"
 )
 
 var (
-	Endpoint    = envOrDefault("MOCA_E2E_ENDPOINT", "http://localhost:26657")
-	EVMEndpoint = envOrDefault("MOCA_E2E_EVM_ENDPOINT", "http://localhost:8545")
-	ChainID     = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
-	LocalupDir  = envOrDefault("MOCA_E2E_LOCALUP_DIR", "../../moca/deployment/localup/.local")
+	ChainID      = envOrDefault("MOCA_E2E_CHAIN_ID", "moca_5151-1")
+	LocalupDir   = resolveLocalupDir()
+	MocadPath    = resolveMocadPath()
+	Endpoint     = resolveEndpoint()
+	GRPCEndpoint = resolveGRPCEndpoint()
+	EVMEndpoint  = resolveEVMEndpoint()
 )
 
 func envOrDefault(key, defaultValue string) string {
@@ -30,64 +36,229 @@ func envOrDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
-func ParseMnemonicFromFile(fileName string) string {
-	fileName = filepath.Clean(fileName)
-	file, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
+func resolveEndpoint() string {
+	if value := os.Getenv("MOCA_E2E_ENDPOINT"); value != "" {
+		return value
 	}
-	// #nosec
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(file)
+	return "http://127.0.0.1:26657"
+}
 
-	scanner := bufio.NewScanner(file)
-	var line string
-	for scanner.Scan() {
-		if scanner.Text() != "" {
-			line = scanner.Text()
+func resolveEVMEndpoint() string {
+	if value := os.Getenv("MOCA_E2E_EVM_ENDPOINT"); value != "" {
+		return value
+	}
+	return "http://127.0.0.1:8545"
+}
+
+func resolveGRPCEndpoint() string {
+	if value := os.Getenv("MOCA_E2E_GRPC_ENDPOINT"); value != "" {
+		return value
+	}
+	return "127.0.0.1:9090"
+}
+
+func resolveLocalupDir() string {
+	if value := os.Getenv("MOCA_E2E_LOCALUP_DIR"); value != "" {
+		return value
+	}
+
+	candidates := []string{
+		"../moca/deployment/localup/.local",
+		"../../moca/deployment/localup/.local",
+		"../../../moca/deployment/localup/.local",
+		"../../../../moca/deployment/localup/.local",
+	}
+
+	for _, candidate := range candidates {
+		cleaned := filepath.Clean(candidate)
+		if _, err := os.Stat(cleaned); err == nil {
+			return cleaned
 		}
 	}
-	return line
+
+	// Fall back to the CI sibling checkout layout.
+	return filepath.Clean("../../../moca/deployment/localup/.local")
+}
+
+func resolveMocadPath() string {
+	if value := os.Getenv("MOCA_E2E_MOCAD"); value != "" {
+		return value
+	}
+
+	candidates := []string{
+		filepath.Join(LocalupDir, "..", "..", "..", "build", "mocad"),
+		"../moca/build/mocad",
+		"../../moca/build/mocad",
+		"../../../moca/build/mocad",
+		"../../../../moca/build/mocad",
+	}
+
+	for _, candidate := range candidates {
+		cleaned := filepath.Clean(candidate)
+		if info, err := os.Stat(cleaned); err == nil && !info.IsDir() {
+			return cleaned
+		}
+	}
+
+	return filepath.Clean(filepath.Join(LocalupDir, "..", "..", "..", "build", "mocad"))
+}
+
+func exportLocalPrivateKey(name, homeDir string) (string, error) {
+	cmd := exec.Command(
+		MocadPath,
+		"keys",
+		"export",
+		name,
+		"--unarmored-hex",
+		"--unsafe",
+		"--keyring-backend",
+		"test",
+		"--home",
+		filepath.Clean(homeDir),
+	)
+	cmd.Stdin = strings.NewReader("y\n")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("export private key for %s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
+	privateKey, err := exportLocalPrivateKey(name, homeDir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	account, err := types.NewAccountFromPrivateKey(name, privateKey)
+	if err != nil {
+		return nil, "", err
+	}
+	return account, privateKey, nil
+}
+
+func loadFirstLocalAccount(candidates ...struct {
+	name string
+	home string
+}) (*types.Account, string, error) {
+	var lastErr error
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate.home); err != nil {
+			lastErr = err
+			continue
+		}
+		account, privateKey, err := loadLocalAccount(candidate.name, candidate.home)
+		if err == nil {
+			return account, privateKey, nil
+		}
+		lastErr = err
+	}
+	return nil, "", fmt.Errorf("load local account failed: %w", lastErr)
 }
 
 type BaseSuite struct {
 	suite.Suite
-	DefaultAccount  *types.Account
-	Client          client.IClient
-	ClientContext   context.Context
-	ChallengeClient client.IClient
+	DefaultAccount    *types.Account
+	DefaultPrivateKey string
+	Client            client.IClient
+	ClientContext     context.Context
+	ChallengeClient   client.IClient
 }
 
-// ParseValidatorMnemonic read the validator mnemonic from file
-func ParseValidatorMnemonic(i int) string {
-	return ParseMnemonicFromFile(filepath.Join(LocalupDir, fmt.Sprintf("validator%d/info", i)))
+type LocalE2ETransport struct {
+	base http.RoundTripper
+}
+
+func (t LocalE2ETransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL == nil {
+		return t.transport().RoundTrip(req)
+	}
+
+	host := req.URL.Hostname()
+	port := req.URL.Port()
+	targetHost, targetPort, ok := localE2EHostPort(host, port)
+	if !ok {
+		return t.transport().RoundTrip(req)
+	}
+
+	cloned := req.Clone(req.Context())
+	u := *req.URL
+	u.Host = net.JoinHostPort(targetHost, targetPort)
+	cloned.URL = &u
+	if cloned.Host == "" {
+		cloned.Host = req.URL.Host
+	}
+	return t.transport().RoundTrip(cloned)
+}
+
+func localE2EHostPort(host, port string) (string, string, bool) {
+	if port == "" {
+		port = "80"
+	}
+	if strings.EqualFold(host, "host.docker.internal") {
+		return "127.0.0.1", port, true
+	}
+	if port != "9033" {
+		return "", "", false
+	}
+	switch strings.ToLower(host) {
+	case "sp-0":
+		return "127.0.0.1", "9033", true
+	case "sp-1":
+		return "127.0.0.1", "9034", true
+	case "sp-2":
+		return "127.0.0.1", "9035", true
+	default:
+		return "", "", false
+	}
+}
+
+func (t LocalE2ETransport) transport() http.RoundTripper {
+	if t.base != nil {
+		return t.base
+	}
+	return http.DefaultTransport
+}
+
+func LocalE2EClientOption(account *types.Account, transport http.RoundTripper) client.Option {
+	return client.Option{
+		DefaultAccount: account,
+		GrpcAddress:    GRPCEndpoint,
+		GrpcDialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
+		Transport:      transport,
+	}
 }
 
 func (s *BaseSuite) NewChallengeClient() {
-	mnemonic := ParseMnemonicFromFile(filepath.Join(LocalupDir, "challenger0/challenger_info"))
-	challengeAcc, err := types.NewAccountFromMnemonic("challenge_account", mnemonic)
+	challengeAcc, priKey, err := loadFirstLocalAccount(
+		struct {
+			name string
+			home string
+		}{"challenger0", filepath.Join(LocalupDir, "challenger0")},
+		struct {
+			name string
+			home string
+		}{"challenger-0", filepath.Join(LocalupDir, "challenger-0")},
+	)
 	s.Require().NoError(err)
-	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
-	s.Require().NoError(err)
-	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
-		DefaultAccount: challengeAcc,
-	})
+	s.ChallengeClient, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, LocalE2EClientOption(challengeAcc, LocalE2ETransport{}))
 	s.Require().NoError(err)
 }
 
 func (s *BaseSuite) SetupSuite() {
-	mnemonic := ParseValidatorMnemonic(0)
-	account, err := types.NewAccountFromMnemonic("test", mnemonic)
+	account, priKey, err := loadFirstLocalAccount(
+		struct {
+			name string
+			home string
+		}{"validator0", filepath.Join(LocalupDir, "validator0")},
+		struct {
+			name string
+			home string
+		}{"validator-0", filepath.Join(LocalupDir, "validator-0")},
+	)
 	s.Require().NoError(err)
-	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
-	s.Require().NoError(err)
-	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, client.Option{
-		DefaultAccount: account,
-	})
+	s.DefaultPrivateKey = priKey
+	s.Client, err = client.New(ChainID, Endpoint, EVMEndpoint, priKey, LocalE2EClientOption(account, LocalE2ETransport{}))
 	s.Require().NoError(err)
 	s.ClientContext = context.Background()
 	s.DefaultAccount = account
@@ -102,15 +273,21 @@ func (s *BaseSuite) WaitSealObject(bucketName string, objectName string) {
 	)
 
 	// wait 300s
+	sealedCount := 0
 	for i := 0; i < 100; i++ {
 		objectDetail, err = s.Client.HeadObject(s.ClientContext, bucketName, objectName)
 		s.Require().NoError(err)
 		if objectDetail.ObjectInfo.GetObjectStatus() == storageTypes.OBJECT_STATUS_SEALED && !objectDetail.ObjectInfo.GetIsUpdating() {
-			break
+			sealedCount++
+			if sealedCount >= 2 {
+				break
+			}
+		} else {
+			sealedCount = 0
 		}
 		time.Sleep(3 * time.Second)
 	}
 
-	s.Require().Equal(objectDetail.ObjectInfo.GetObjectStatus().String(), "OBJECT_STATUS_SEALED")
+	s.Require().Equal("OBJECT_STATUS_SEALED", objectDetail.ObjectInfo.GetObjectStatus().String())
 	s.T().Logf("---> Wait Seal Object cost %d ms, <---", time.Since(startCheckTime).Milliseconds())
 }
