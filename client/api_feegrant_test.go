@@ -13,7 +13,7 @@ import (
 	sdktypes "github.com/mocachain/moca/v2/sdk/types"
 )
 
-func TestNormalizeFeeGrantAccountAddress_HexInputReturnsBech32(t *testing.T) {
+func TestFeegrantNormalizeAccountAddress_HexInputReturnsBech32(t *testing.T) {
 	km, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
 	require.NoError(t, err)
 
@@ -25,7 +25,7 @@ func TestNormalizeFeeGrantAccountAddress_HexInputReturnsBech32(t *testing.T) {
 	require.Equal(t, expectedBech32, bech32Addr)
 }
 
-func TestNormalizeFeeGrantAccountAddress_CosmosBech32InputReturnsPrimaryBech32(t *testing.T) {
+func TestFeegrantNormalizeAccountAddress_CosmosBech32InputReturnsPrimaryBech32(t *testing.T) {
 	km, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
 	require.NoError(t, err)
 
@@ -41,7 +41,7 @@ func TestNormalizeFeeGrantAccountAddress_CosmosBech32InputReturnsPrimaryBech32(t
 	require.Equal(t, expectedBech32, bech32Addr)
 }
 
-func TestGrantBasicAllowance_UsesBech32AddressesInFeeGrantMessage(t *testing.T) {
+func TestFeegrantNewGrantAllowanceMsg_UsesBech32Addresses(t *testing.T) {
 	granterKM, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
 	require.NoError(t, err)
 	granteeKM, err := sdkkeys.NewPrivateKeyManager("e04eb74dc6bf9ceb89e584ee57d0c2f4f86d88c1604ec54f76a8c76cffb34417")
@@ -51,7 +51,7 @@ func TestGrantBasicAllowance_UsesBech32AddressesInFeeGrantMessage(t *testing.T) 
 		SpendLimit: sdk.NewCoins(sdk.NewCoin(sdktypes.Denom, math.NewIntWithDecimal(1, 18))),
 	}
 
-	msg, err := feegrant.NewMsgGrantAllowance(&allowance, granterKM.GetAddr(), granteeKM.GetAddr())
+	msg, err := newFeeGrantAllowanceMsg(granterKM.GetAddr(), granteeKM.GetAddr().String(), &allowance)
 	require.NoError(t, err)
 
 	_, granterBech32, err := normalizeFeeGrantAccountAddress(granterKM.GetAddr().String())
@@ -59,8 +59,24 @@ func TestGrantBasicAllowance_UsesBech32AddressesInFeeGrantMessage(t *testing.T) 
 	_, granteeBech32, err := normalizeFeeGrantAccountAddress(granteeKM.GetAddr().String())
 	require.NoError(t, err)
 
-	msg.Granter = granterBech32
-	msg.Grantee = granteeBech32
+	require.Equal(t, granterBech32, msg.Granter)
+	require.Equal(t, granteeBech32, msg.Grantee)
+}
+
+func TestFeegrantNewRevokeMsg_UsesBech32Addresses(t *testing.T) {
+	granterKM, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
+	require.NoError(t, err)
+	granteeKM, err := sdkkeys.NewPrivateKeyManager("e04eb74dc6bf9ceb89e584ee57d0c2f4f86d88c1604ec54f76a8c76cffb34417")
+	require.NoError(t, err)
+
+	msg, err := newFeeGrantRevokeMsg(granterKM.GetAddr(), granteeKM.GetAddr().String())
+	require.NoError(t, err)
+
+	_, granterBech32, err := normalizeFeeGrantAccountAddress(granterKM.GetAddr().String())
+	require.NoError(t, err)
+	_, granteeBech32, err := normalizeFeeGrantAccountAddress(granteeKM.GetAddr().String())
+	require.NoError(t, err)
+
 	require.Equal(t, granterBech32, msg.Granter)
 	require.Equal(t, granteeBech32, msg.Grantee)
 }

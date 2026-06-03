@@ -25,21 +25,12 @@ type IFeeGrantClient interface {
 
 // GrantBasicAllowance grants the grantee the BasicAllowance with specified amount and expiration.
 func (c *Client) GrantBasicAllowance(ctx context.Context, granteeAddr string, feeAllowanceAmount math.Int, expiration *time.Time, txOption gnfdsdktypes.TxOption) (string, error) {
-	grantee, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeAddr)
-	if err != nil {
-		return "", err
-	}
 	amoca := sdk.NewCoins(sdk.NewCoin(gnfdsdktypes.Denom, feeAllowanceAmount))
 	allowance := feegrant.BasicAllowance{
 		SpendLimit: amoca,
 		Expiration: expiration,
 	}
-	msg, err := feegrant.NewMsgGrantAllowance(&allowance, c.defaultAccount.GetAddress(), grantee)
-	if err != nil {
-		return "", err
-	}
-	msg.Grantee = granteeAddrBech32
-	msg.Granter, err = feeGrantAddressCodec.BytesToString(c.defaultAccount.GetAddress())
+	msg, err := newFeeGrantAllowanceMsg(c.defaultAccount.GetAddress(), granteeAddr, &allowance)
 	if err != nil {
 		return "", err
 	}
@@ -48,16 +39,7 @@ func (c *Client) GrantBasicAllowance(ctx context.Context, granteeAddr string, fe
 
 // GrantAllowance provides a generic way to grant different types of allowance(BasicAllowance, PeriodicAllowance, AllowedMsgAllowance), the user needs to construct the desired type of allowance
 func (c *Client) GrantAllowance(ctx context.Context, granteeAddr string, allowance feegrant.FeeAllowanceI, txOption gnfdsdktypes.TxOption) (string, error) {
-	grantee, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeAddr)
-	if err != nil {
-		return "", err
-	}
-	msg, err := feegrant.NewMsgGrantAllowance(allowance, c.defaultAccount.GetAddress(), grantee)
-	if err != nil {
-		return "", err
-	}
-	msg.Grantee = granteeAddrBech32
-	msg.Granter, err = feeGrantAddressCodec.BytesToString(c.defaultAccount.GetAddress())
+	msg, err := newFeeGrantAllowanceMsg(c.defaultAccount.GetAddress(), granteeAddr, allowance)
 	if err != nil {
 		return "", err
 	}
@@ -70,13 +52,7 @@ func (c *Client) GrantAllowance(ctx context.Context, granteeAddr string, allowan
 
 // RevokeAllowance revokes allowance on a grantee by the granter
 func (c *Client) RevokeAllowance(ctx context.Context, granteeAddr string, txOption gnfdsdktypes.TxOption) (string, error) {
-	grantee, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeAddr)
-	if err != nil {
-		return "", err
-	}
-	msg := feegrant.NewMsgRevokeAllowance(c.defaultAccount.GetAddress(), grantee)
-	msg.Grantee = granteeAddrBech32
-	msg.Granter, err = feeGrantAddressCodec.BytesToString(c.defaultAccount.GetAddress())
+	msg, err := newFeeGrantRevokeMsg(c.defaultAccount.GetAddress(), granteeAddr)
 	if err != nil {
 		return "", err
 	}
@@ -151,6 +127,39 @@ func (c *Client) QueryGranterAllowances(ctx context.Context, granterAddr string)
 }
 
 var feeGrantAddressCodec = cmdcfg.NewMultiPrefixBech32AccCodec()
+
+func newFeeGrantAllowanceMsg(granter sdk.AccAddress, granteeAddr string, allowance feegrant.FeeAllowanceI) (*feegrant.MsgGrantAllowance, error) {
+	grantee, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := feegrant.NewMsgGrantAllowance(allowance, granter, grantee)
+	if err != nil {
+		return nil, err
+	}
+	msg.Grantee = granteeAddrBech32
+	msg.Granter, err = feeGrantAddressCodec.BytesToString(granter)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func newFeeGrantRevokeMsg(granter sdk.AccAddress, granteeAddr string) (feegrant.MsgRevokeAllowance, error) {
+	grantee, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeAddr)
+	if err != nil {
+		return feegrant.MsgRevokeAllowance{}, err
+	}
+
+	msg := feegrant.NewMsgRevokeAllowance(granter, grantee)
+	msg.Grantee = granteeAddrBech32
+	msg.Granter, err = feeGrantAddressCodec.BytesToString(granter)
+	if err != nil {
+		return feegrant.MsgRevokeAllowance{}, err
+	}
+	return msg, nil
+}
 
 func normalizeFeeGrantAccountAddress(addr string) (sdk.AccAddress, string, error) {
 	acc, err := sdk.AccAddressFromHexUnsafe(addr)
