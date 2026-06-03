@@ -7,7 +7,6 @@ on:
       - develop
     paths:
       - ".github/e2e/**"
-      - ".github/workflows/e2e.yml"
       - "e2e/**"
 
   pull_request:
@@ -16,7 +15,6 @@ on:
       - develop
     paths:
       - ".github/e2e/**"
-      - ".github/workflows/e2e.yml"
       - "e2e/**"
 
 env:
