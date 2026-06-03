@@ -9,7 +9,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	cmdcfg "github.com/mocachain/moca/v2/cmd/config"
 	gnfdsdktypes "github.com/mocachain/moca/v2/sdk/types"
-	mocautils "github.com/mocachain/moca/v2/utils"
 )
 
 type IFeeGrantClient interface {
@@ -156,10 +155,14 @@ var feeGrantAddressCodec = cmdcfg.NewMultiPrefixBech32AccCodec()
 func normalizeFeeGrantAccountAddress(addr string) (sdk.AccAddress, string, error) {
 	acc, err := sdk.AccAddressFromHexUnsafe(addr)
 	if err != nil {
-		acc, err = mocautils.GetMocaAddressFromBech32(addr)
+		bz, err := feeGrantAddressCodec.StringToBytes(addr)
 		if err != nil {
 			return nil, "", err
 		}
+		if err := sdk.VerifyAddressFormat(bz); err != nil {
+			return nil, "", err
+		}
+		acc = sdk.AccAddress(bz)
 	}
 
 	bech32Addr, err := feeGrantAddressCodec.BytesToString(acc)

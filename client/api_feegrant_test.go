@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
+	cmdcfg "github.com/mocachain/moca/v2/cmd/config"
 	sdkkeys "github.com/mocachain/moca/v2/sdk/keys"
 	sdktypes "github.com/mocachain/moca/v2/sdk/types"
 )
@@ -17,6 +18,22 @@ func TestNormalizeFeeGrantAccountAddress_HexInputReturnsBech32(t *testing.T) {
 	require.NoError(t, err)
 
 	acc, bech32Addr, err := normalizeFeeGrantAccountAddress(km.GetAddr().String())
+	require.NoError(t, err)
+	require.Equal(t, km.GetAddr(), acc)
+	expectedBech32, err := feeGrantAddressCodec.BytesToString(km.GetAddr())
+	require.NoError(t, err)
+	require.Equal(t, expectedBech32, bech32Addr)
+}
+
+func TestNormalizeFeeGrantAccountAddress_CosmosBech32InputReturnsPrimaryBech32(t *testing.T) {
+	km, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
+	require.NoError(t, err)
+
+	cosmosCodec := cmdcfg.NewMultiPrefixBech32Codec("cosmos", "moca")
+	cosmosBech32, err := cosmosCodec.BytesToString(km.GetAddr())
+	require.NoError(t, err)
+
+	acc, bech32Addr, err := normalizeFeeGrantAccountAddress(cosmosBech32)
 	require.NoError(t, err)
 	require.Equal(t, km.GetAddr(), acc)
 	expectedBech32, err := feeGrantAddressCodec.BytesToString(km.GetAddr())
