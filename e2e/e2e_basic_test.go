@@ -131,15 +131,15 @@ func (s *BasicTestSuite) Test_MultiTransfer() {
 
 	balance1, err := s.Client.GetAccountBalance(s.ClientContext, receiver1.GetAddress().String())
 	s.Require().NoError(err)
-	s.Equal(receiver1Amount, balance1.Amount)
+	s.Require().True(receiver1Amount.Equal(balance1.Amount))
 
 	balance2, err := s.Client.GetAccountBalance(s.ClientContext, receiver2.GetAddress().String())
 	s.Require().NoError(err)
-	s.Equal(receiver2Amount, balance2.Amount)
+	s.Require().True(receiver2Amount.Equal(balance2.Amount))
 
 	balance3, err := s.Client.GetAccountBalance(s.ClientContext, receiver3.GetAddress().String())
 	s.Require().NoError(err)
-	s.Equal(receiver3Amount, balance3.Amount)
+	s.Require().True(receiver3Amount.Equal(balance3.Amount))
 }
 
 func (s *BasicTestSuite) Test_Payment() {

@@ -148,7 +148,7 @@ func exportLocalPrivateKeyFromDocker(name, homeDir string) (string, error) {
 			"rm -rf %[1]s %[2]s\n"+
 			"mkdir -p %[1]s %[2]s\n"+
 			"cp -R %[3]s/. %[2]s/\n"+
-			"mocad keys export %[4]s --unarmored-hex --unsafe --yes --keyring-backend test --home %[1]s --keyring-dir %[2]s",
+			"printf 'y\\n' | mocad keys export %[4]s --unarmored-hex --unsafe --keyring-backend test --home %[1]s --keyring-dir %[2]s",
 		shellQuote(tmpHome),
 		shellQuote(filepath.ToSlash(filepath.Join(tmpHome, "keyring-test"))),
 		shellQuote(keyringDir),

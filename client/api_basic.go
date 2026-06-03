@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cometbft/cometbft/proto/tendermint/p2p"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
@@ -26,6 +27,12 @@ import (
 	"github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+)
+
+const (
+	simulatedGasAdjustmentNumerator   = uint64(125)
+	simulatedGasAdjustmentDenominator = uint64(100)
+	simulatedGasSafetyMargin          = uint64(10000)
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -302,6 +309,9 @@ func (c *Client) tryWaitForTx(ctx context.Context, hash string) (*ctypes.ResultT
 	if txResponse == nil {
 		return nil, errTxNotFound
 	}
+	if txResponse.TxResult.Code != 0 {
+		return nil, fmt.Errorf("transaction %s failed with response code: %d, codespace:%s, log:%s", hash, txResponse.TxResult.Code, txResponse.TxResult.Codespace, txResponse.TxResult.Log)
+	}
 	return txResponse, nil
 }
 
@@ -354,7 +364,11 @@ func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.T
 			}
 		}
 	}
-	resp, err := c.chainClient.BroadcastTx(ctx, msgs, txOpt, opts...)
+	effectiveTxOpt, err := c.withBufferedSimulatedGas(ctx, msgs, txOpt, opts...)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.chainClient.BroadcastTx(ctx, msgs, effectiveTxOpt, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -379,6 +393,51 @@ func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.T
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxOption, opts ...grpc.CallOption) (*tx.SimulateResponse, error) {
 	return c.chainClient.SimulateTx(ctx, msgs, &txOpt, opts...)
+}
+
+func (c *Client) withBufferedSimulatedGas(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*types.TxOption, error) {
+	if txOpt != nil && txOpt.NoSimulate {
+		return txOpt, nil
+	}
+
+	var effectiveTxOpt types.TxOption
+	if txOpt != nil {
+		effectiveTxOpt = *txOpt
+	}
+
+	simulateRes, err := c.SimulateTx(ctx, msgs, effectiveTxOpt, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	gasLimit := adjustedSimulatedGasLimit(simulateRes.GasInfo.GetGasUsed())
+	gasPrice, err := simulatedGasPrice(simulateRes.GasInfo.GetMinGasPrice())
+	if err != nil {
+		return nil, err
+	}
+
+	effectiveTxOpt.NoSimulate = true
+	effectiveTxOpt.GasLimit = gasLimit
+	effectiveTxOpt.FeeAmount = sdk.NewCoins(
+		sdk.NewCoin(gasPrice.Denom, gasPrice.Amount.Mul(sdkmath.NewIntFromUint64(gasLimit))),
+	)
+
+	return &effectiveTxOpt, nil
+}
+
+func adjustedSimulatedGasLimit(gasUsed uint64) uint64 {
+	if gasUsed == 0 {
+		return 0
+	}
+	adjusted := (gasUsed*simulatedGasAdjustmentNumerator + simulatedGasAdjustmentDenominator - 1) / simulatedGasAdjustmentDenominator
+	return adjusted + simulatedGasSafetyMargin
+}
+
+func simulatedGasPrice(minGasPrice string) (sdk.Coin, error) {
+	if minGasPrice == "" {
+		return sdk.NewCoin(types.Denom, sdkmath.NewInt(types.DefaultGasPrice)), nil
+	}
+	return sdk.ParseCoinNormalized(minGasPrice)
 }
 
 // GetSyncing - Retrieve the syncing status of the node.

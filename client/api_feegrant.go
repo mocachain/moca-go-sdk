@@ -133,16 +133,17 @@ func newFeeGrantAllowanceMsg(granter sdk.AccAddress, granteeAddr string, allowan
 	if err != nil {
 		return nil, err
 	}
+	_, granterAddrBech32, err := normalizeFeeGrantAccountAddress(granter.String())
+	if err != nil {
+		return nil, err
+	}
 
 	msg, err := feegrant.NewMsgGrantAllowance(allowance, granter, grantee)
 	if err != nil {
 		return nil, err
 	}
 	msg.Grantee = granteeAddrBech32
-	msg.Granter, err = feeGrantAddressCodec.BytesToString(granter)
-	if err != nil {
-		return nil, err
-	}
+	msg.Granter = granterAddrBech32
 	return msg, nil
 }
 
@@ -151,13 +152,14 @@ func newFeeGrantRevokeMsg(granter sdk.AccAddress, granteeAddr string) (feegrant.
 	if err != nil {
 		return feegrant.MsgRevokeAllowance{}, err
 	}
-
-	msg := feegrant.NewMsgRevokeAllowance(granter, grantee)
-	msg.Grantee = granteeAddrBech32
-	msg.Granter, err = feeGrantAddressCodec.BytesToString(granter)
+	_, granterAddrBech32, err := normalizeFeeGrantAccountAddress(granter.String())
 	if err != nil {
 		return feegrant.MsgRevokeAllowance{}, err
 	}
+
+	msg := feegrant.NewMsgRevokeAllowance(granter, grantee)
+	msg.Grantee = granteeAddrBech32
+	msg.Granter = granterAddrBech32
 	return msg, nil
 }
 
@@ -173,10 +175,9 @@ func normalizeFeeGrantAccountAddress(addr string) (sdk.AccAddress, string, error
 		}
 		acc = sdk.AccAddress(bz)
 	}
-
-	bech32Addr, err := feeGrantAddressCodec.BytesToString(acc)
+	addrBech32, err := feeGrantAddressCodec.BytesToString(acc)
 	if err != nil {
 		return nil, "", err
 	}
-	return acc, bech32Addr, nil
+	return acc, addrBech32, nil
 }

@@ -6,10 +6,10 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	types2 "github.com/mocachain/moca/v2/sdk/types"
-	"github.com/stretchr/testify/suite"
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/types"
+	types2 "github.com/mocachain/moca/v2/sdk/types"
+	"github.com/stretchr/testify/suite"
 )
 
 type FeeGrantTestSuite struct {
@@ -99,7 +99,7 @@ func (s *FeeGrantTestSuite) Test_FeeGrant() {
 	s.Require().NoError(err)
 
 	// grantee balance only decreases by transfer amount, not by tx fee
-	s.Require().Equal(granteeBalanceAfterSanitySend.Amount.Sub(math.NewInt(1)), granteeBalanceAfter.Amount)
+	s.Require().True(granteeBalanceAfterSanitySend.Amount.Sub(math.NewInt(1)).Equal(granteeBalanceAfter.Amount))
 
 	// the granter revokes
 	cli.SetDefaultAccount(granter)
