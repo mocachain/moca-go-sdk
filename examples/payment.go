@@ -26,7 +26,7 @@ func TestPayment() {
 	txHash, err := cli.CreatePaymentAccount(context.Background(), account.GetAddress().String(), gnfdsdktypes.TxOption{})
 	handleErr(err, "CreatePaymentAccount")
 	waitForTx, err := cli.WaitForTx(ctx, txHash)
-	handleErr(err, "WaitForTx")
+	handleErr(err, "WaitForTx(CreatePaymentAccount)")
 	log.Printf("Wait for tx: %s", waitForTx.TxResult.String())
 
 	paymentAccounts, err := cli.GetPaymentAccountsByOwner(ctx, account.GetAddress().String())
@@ -38,7 +38,7 @@ func TestPayment() {
 	depositTxHash, err := cli.Deposit(ctx, paymentAddr, depositAmount, gnfdsdktypes.TxOption{})
 	handleErr(err, "Deposit")
 	waitForTx, err = cli.WaitForTx(ctx, depositTxHash)
-	handleErr(err, "WaitForTx")
+	handleErr(err, "WaitForTx(Deposit)")
 	log.Printf("Wait for tx: %s", waitForTx.TxResult.String())
 	log.Printf("deposited %s to payment account %s, txHash=%s", depositAmount.String(), paymentAddr, depositTxHash)
 
@@ -54,7 +54,7 @@ func TestPayment() {
 	log.Printf("withdraw tx: %s", withdrawTxHash)
 
 	waitForTx, err = cli.WaitForTx(ctx, withdrawTxHash)
-	handleErr(err, "WaitForTx")
+	handleErr(err, "WaitForTx(Withdraw)")
 	log.Printf("Wait for tx: %s", waitForTx.TxResult.String())
 
 	streamRecordAfterWithdraw, err := cli.GetStreamRecord(ctx, paymentAddr)

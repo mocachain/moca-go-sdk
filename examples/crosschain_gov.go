@@ -64,7 +64,3 @@ func parameterChange() sdk.Msg {
 	}
 	return msgUpdateParams
 }
-
-// Suppose the current bucketHub contract is 0x111568F484E4b8759a3aeC6aF11EA17BC18479A8, objectHub 0x2F0cf555a0E1dAE8CDacef66D8244E49Ee72Ad2D, groupHub 0x40eC91B82D7aCAA065d54B08D751505D479b0E43.
-// respectively, we want to upgrade to 0x82CDc0BDb92Af93F301332Ed05F4F844c7c74FD6, 0xd00137EABe7CC9434EA70Cde29f9DB5f65a335f7, 0xc11bFABfFE9e1A4A1557f1494cb74Cc86AB69441.
-// fill this the MsgUpdateCrossChainParams as below

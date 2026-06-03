@@ -67,7 +67,7 @@ func TestDelegateUploadObject() {
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
 	handleErr(err, "GetObject")
 	objectBytes, err := io.ReadAll(reader)
-	handleErr(err, "GetObject")
+	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, buffer.Bytes()) {
 		handleErr(errors.New("download content not same"), "GetObject")
 	}
@@ -87,7 +87,7 @@ func TestDelegateUploadObject() {
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
 	handleErr(err, "GetObject")
 	objectBytes, err = io.ReadAll(reader)
-	handleErr(err, "GetObject")
+	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, newBuffer.Bytes()) {
 		handleErr(errors.New("download content not same"), "GetObject")
 	}

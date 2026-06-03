@@ -12,7 +12,7 @@ import (
 const unknownErr = "unknown error"
 
 var (
-	ErrorDefaultAccountNotExist = errors.New("default account of client does not exist")
+	ErrorDefaultAccountNotExist = errors.New("default account of client is not exist")
 	ErrorProposalIDNotFound     = errors.New("proposal ID not found")
 )
 

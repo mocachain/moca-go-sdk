@@ -66,7 +66,6 @@ func main() {
 	reader, info, err := cli.GetObject(ctx, bucketName, objectName, types.GetObjectOptions{})
 	handleErr(err, "GetObject")
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
-	handleErr(err, "GetObject")
 	objectBytes, err := io.ReadAll(reader)
 	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, buffer.Bytes()) {
