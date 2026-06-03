@@ -22,10 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 	"github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -81,7 +81,7 @@ func (c *Client) EnableTrace(output io.Writer, onlyTraceErr bool) {
 //
 // - ret3: Return error when the request failed, otherwise return nil.
 func (c *Client) GetNodeInfo(ctx context.Context) (*p2p.DefaultNodeInfo, *cmtservice.VersionInfo, error) {
-	nodeInfoResponse, err := c.chainClient.TmClient.GetNodeInfo(ctx, &cmtservice.GetNodeInfoRequest{})
+	nodeInfoResponse, err := c.chainClient.GetNodeInfo(ctx, &cmtservice.GetNodeInfoRequest{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -149,7 +149,7 @@ func (c *Client) BroadcastRawTx(ctx context.Context, txBytes []byte, sync bool) 
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) SimulateRawTx(ctx context.Context, txBytes []byte, opts ...grpc.CallOption) (*tx.SimulateResponse, error) {
-	simulateResponse, err := c.chainClient.TxClient.Simulate(
+	simulateResponse, err := c.chainClient.Simulate(
 		ctx,
 		&tx.SimulateRequest{
 			TxBytes: txBytes,
@@ -238,7 +238,7 @@ func (c *Client) WaitForNBlocks(ctx context.Context, n int64) error {
 	if err != nil {
 		return err
 	}
-	return c.WaitForBlockHeight(ctx, start.Header.Height+n)
+	return c.WaitForBlockHeight(ctx, start.Height+n)
 }
 
 // WaitForTx - Wait for a transaction to be confirmed onchian, if transaction not found in current block, wait for the next block. API ends when a transaction is found or context is canceled.
@@ -251,51 +251,7 @@ func (c *Client) WaitForNBlocks(ctx context.Context, n int64) error {
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) WaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	// return c.waitForTx(ctx, hash)
 	return c.waitForEvmTx(ctx, hash)
-}
-
-func (c *Client) waitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	for {
-		var (
-			txResponse *ctypes.ResultTx
-			err        error
-			waitTxCtx  context.Context
-			cancelFunc context.CancelFunc
-		)
-
-		// when websocket conn is used, use a short timeout context to achieve the retry mechanism
-		if c.useWebsocketConn {
-			waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
-			txResponse, err = c.chainClient.Tx(waitTxCtx, hash)
-			cancelFunc()
-		} else {
-			txResponse, err = c.chainClient.Tx(ctx, hash)
-		}
-		if err != nil {
-			// Tx not found, wait for next block and try again
-			// If websocket conn is enabled, we also want to re-try the GetTx calls by having a timeout context
-			if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
-
-				err := c.WaitForNextBlock(ctx)
-				if err != nil {
-					return nil, errors.Wrap(err, "waiting for next block")
-				}
-				continue
-			}
-			return nil, errors.Wrapf(err, "fetching tx '%s'", hash)
-		}
-		// `nil` could mean the transaction is in the mempool, invalidated, or was not sent in the first place.
-		if txResponse == nil {
-			err := c.WaitForNextBlock(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "waiting for next block")
-			}
-			continue
-		}
-		// Tx found
-		return txResponse, nil
-	}
 }
 
 func (c *Client) waitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
@@ -529,7 +485,7 @@ func (c *Client) sendSetTagEvmTxn(ctx context.Context, msg *storageTypes.MsgSetT
 
 			// Check if it's a nonce-related error that we should retry
 			if strings.Contains(errorMsg, gosdktypes.InvalidNonceErr) ||
-			   strings.Contains(errorMsg, gosdktypes.InvalidSequenceErr) {
+				strings.Contains(errorMsg, gosdktypes.InvalidSequenceErr) {
 
 				if retry == gosdktypes.MaxNonceRetryTime-1 {
 					// This is the last retry, return the error

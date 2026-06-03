@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -50,7 +49,7 @@ func TestDelegateUploadObject() {
 	var buffer bytes.Buffer
 	line := `0123456789`
 	for i := 0; i < 1024; i++ {
-		buffer.WriteString(fmt.Sprintf("%s", line))
+		buffer.WriteString(line)
 	}
 
 	err = cli.DelegatePutObject(ctx, bucketName, objectName, int64(buffer.Len()), bytes.NewReader(buffer.Bytes()), types.PutObjectOptions{})
@@ -68,6 +67,7 @@ func TestDelegateUploadObject() {
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
 	handleErr(err, "GetObject")
 	objectBytes, err := io.ReadAll(reader)
+	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, buffer.Bytes()) {
 		handleErr(errors.New("download content not same"), "GetObject")
 	}
@@ -75,7 +75,7 @@ func TestDelegateUploadObject() {
 	// the updated content of object
 	var newBuffer bytes.Buffer
 	for i := 0; i < 2048; i++ {
-		newBuffer.WriteString(fmt.Sprintf("%s", line))
+		newBuffer.WriteString(line)
 	}
 
 	err = cli.DelegateUpdateObjectContent(ctx, bucketName, objectName, int64(buffer.Len()), bytes.NewReader(newBuffer.Bytes()), types.PutObjectOptions{})
@@ -87,6 +87,7 @@ func TestDelegateUploadObject() {
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
 	handleErr(err, "GetObject")
 	objectBytes, err = io.ReadAll(reader)
+	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, newBuffer.Bytes()) {
 		handleErr(errors.New("download content not same"), "GetObject")
 	}

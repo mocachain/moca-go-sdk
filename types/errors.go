@@ -12,8 +12,8 @@ import (
 const unknownErr = "unknown error"
 
 var (
-	ErrorDefaultAccountNotExist = errors.New("Default account of client is not exist ")
-	ErrorProposalIDNotFound     = errors.New("Proposal ID not found ")
+	ErrorDefaultAccountNotExist = errors.New("default account of client is not exist")
+	ErrorProposalIDNotFound     = errors.New("proposal ID not found")
 )
 
 // ErrResponse define the information of the error response

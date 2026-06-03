@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 type BucketMigrateTestSuite struct {
@@ -52,7 +52,7 @@ func (s *BucketMigrateTestSuite) CreateObjects(bucketName string, count int) ([]
 		line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 		// Create 1MiB content where each line contains 1024 characters.
 		for n := 0; n < 1024*3; n++ {
-			buffer.WriteString(fmt.Sprintf("[%05d] %s\n", n, line))
+			fmt.Fprintf(&buffer, "[%05d] %s\n", n, line)
 		}
 		objectName := storageTestUtil.GenRandomObjectName()
 		s.T().Logf("---> CreateObject and HeadObject, bucket name:%s, object name:%s <---", bucketName, objectName)

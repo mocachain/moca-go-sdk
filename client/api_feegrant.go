@@ -100,7 +100,7 @@ func (c *Client) QueryAllowance(ctx context.Context, granterAddr, granteeAddr st
 		Granter: granterAddr,
 		Grantee: granteeAddr,
 	}
-	response, err := c.chainClient.FeegrantQueryClient.Allowance(ctx, req)
+	response, err := c.chainClient.Allowance(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (c *Client) QueryAllowances(ctx context.Context, granteeAddr string) ([]*fe
 	req := &feegrant.QueryAllowancesRequest{
 		Grantee: granteeAddr,
 	}
-	response, err := c.chainClient.FeegrantQueryClient.Allowances(ctx, req)
+	response, err := c.chainClient.Allowances(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *Client) QueryGranterAllowances(ctx context.Context, granterAddr string)
 	req := &feegrant.QueryAllowancesByGranterRequest{
 		Granter: granterAddr,
 	}
-	response, err := c.chainClient.FeegrantQueryClient.AllowancesByGranter(ctx, req)
+	response, err := c.chainClient.AllowancesByGranter(ctx, req)
 	if err != nil {
 		return nil, err
 	}

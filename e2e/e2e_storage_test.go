@@ -12,6 +12,10 @@ import (
 	"time"
 
 	"cosmossdk.io/math"
+	"github.com/mocachain/moca-go-sdk/client"
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 	"github.com/mocachain/moca/v2/sdk/keys"
 	mcSDkTypes "github.com/mocachain/moca/v2/sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
@@ -21,10 +25,6 @@ import (
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 	"github.com/stretchr/testify/suite"
-	"github.com/mocachain/moca-go-sdk/client"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 type StorageTestSuite struct {
@@ -158,7 +158,7 @@ func (s *StorageTestSuite) Test_Object() {
 	line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 	// Create 1MiB content where each line contains 1024 characters.
 	for i := 0; i < 1024*300; i++ {
-		buffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&buffer, "[%05d] %s\n", i, line)
 	}
 
 	s.T().Log("---> CreateObject and HeadObject <---")
@@ -183,7 +183,7 @@ func (s *StorageTestSuite) Test_Object() {
 
 	var updatedBuffer bytes.Buffer
 	for i := 0; i < 1024*300; i++ {
-		updatedBuffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&updatedBuffer, "[%05d] %s\n", i, line)
 	}
 	objectTx, err = s.Client.UpdateObjectContent(s.ClientContext, bucketName, objectName, bytes.NewReader(updatedBuffer.Bytes()), types.UpdateObjectOptions{})
 	s.Require().NoError(err)
@@ -296,7 +296,7 @@ func (s *StorageTestSuite) Test_Object() {
 	var newBuffer bytes.Buffer
 	size := 1024 * 300 * 40
 	for i := 0; i < size; i++ {
-		newBuffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&newBuffer, "[%05d] %s\n", i, line)
 	}
 	newObjectSize := int64(newBuffer.Len())
 	s.T().Logf("newObjectSize: %d", newObjectSize)
@@ -431,7 +431,7 @@ func (s *StorageTestSuite) createBigObjectWithoutPutObject() (bucket string, obj
 	// Create 45 MiB content, 3 segment
 	for i := 0; i < 1024*1500; i++ {
 		line := types.RandStr(20)
-		buffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&buffer, "[%05d] %s\n", i, line)
 	}
 
 	s.T().Log("---> CreateObject <---")
@@ -488,7 +488,9 @@ func (s *StorageTestSuite) TruncateDownloadTempFileToLessPartSize() {
 
 	file, err := os.OpenFile(tempFilePath, os.O_RDWR, 0o666)
 	s.Require().NoError(err)
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	fileInfo, err := file.Stat()
 	s.Require().NoError(err)
@@ -521,13 +523,17 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 
 	// 3) FGetObjectResumable compare with FGetObject
 	fileName := "test-file-" + storageTestUtil.GenRandomObjectName()
-	defer os.Remove(fileName)
+	defer func() {
+		_ = os.Remove(fileName)
+	}()
 	err = s.Client.FGetObjectResumable(s.ClientContext, bucketName, objectName, fileName, types.GetObjectOptions{PartSize: 32 * 1024 * 1024})
 	s.T().Logf("--->  object file :%s <---", fileName)
 	s.Require().NoError(err)
 
 	fGetObjectFileName := "test-file-" + storageTestUtil.GenRandomObjectName()
-	defer os.Remove(fGetObjectFileName)
+	defer func() {
+		_ = os.Remove(fGetObjectFileName)
+	}()
 	s.T().Logf("--->  object file :%s <---", fGetObjectFileName)
 	err = s.Client.FGetObject(s.ClientContext, bucketName, objectName, fGetObjectFileName, types.GetObjectOptions{})
 	s.Require().NoError(err)
@@ -539,7 +545,9 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 	// 4) Resumable download, download a file with default checkpoint
 	client.DownloadSegmentHooker = DownloadErrorHooker
 	ResumableDownloadFile := storageTestUtil.GenRandomObjectName()
-	defer os.Remove(ResumableDownloadFile)
+	defer func() {
+		_ = os.Remove(ResumableDownloadFile)
+	}()
 	s.T().Logf("---> Resumable download Create newfile:%s, <---", ResumableDownloadFile)
 
 	err = s.Client.FGetObjectResumable(s.ClientContext, bucketName, objectName, ResumableDownloadFile, types.GetObjectOptions{PartSize: 16 * 1024 * 1024})
@@ -557,7 +565,9 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 	// when the downloaded file size is less than a part size
 	client.DownloadSegmentHooker = DownloadErrorHooker
 	ResumableDownloadLessPartFile := storageTestUtil.GenRandomObjectName()
-	defer os.Remove(ResumableDownloadLessPartFile)
+	defer func() {
+		_ = os.Remove(ResumableDownloadLessPartFile)
+	}()
 	s.T().Logf("---> Resumable download for less part size , Create newfile:%s, <---", ResumableDownloadLessPartFile)
 
 	err = s.Client.FGetObjectResumable(s.ClientContext, bucketName, objectName, ResumableDownloadLessPartFile, types.GetObjectOptions{PartSize: 16 * 1024 * 1024})
@@ -579,13 +589,17 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 	s.T().Logf("--->  Resumable download, download a file with range <---")
 	rangeOptions := types.GetObjectOptions{Range: "bytes=1000-94131999", PartSize: partSize16MB}
 	ResumableDownloadWithRangeFile := "test-file-" + storageTestUtil.GenRandomObjectName()
-	defer os.Remove(ResumableDownloadWithRangeFile)
+	defer func() {
+		_ = os.Remove(ResumableDownloadWithRangeFile)
+	}()
 	err = s.Client.FGetObjectResumable(s.ClientContext, bucketName, objectName, ResumableDownloadWithRangeFile, rangeOptions)
 	s.T().Logf("--->  object file :%s <---", ResumableDownloadWithRangeFile)
 	s.Require().NoError(err)
 
 	fGetObjectWithRangeFile := "test-file-" + storageTestUtil.GenRandomObjectName()
-	defer os.Remove(fGetObjectWithRangeFile)
+	defer func() {
+		_ = os.Remove(fGetObjectWithRangeFile)
+	}()
 	s.T().Logf("--->  object file :%s <---", fGetObjectWithRangeFile)
 	err = s.Client.FGetObject(s.ClientContext, bucketName, objectName, fGetObjectWithRangeFile, rangeOptions)
 	s.Require().NoError(err)
@@ -597,7 +611,9 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 	// 6) Resumable download, download a file with range and Truncate
 	s.T().Logf("--->  Resumable download, download a file with range and Truncate <---")
 	rDownloadTruncateFile := "test-file-" + storageTestUtil.GenRandomObjectName()
-	defer os.Remove(rDownloadTruncateFile)
+	defer func() {
+		_ = os.Remove(rDownloadTruncateFile)
+	}()
 	client.DownloadSegmentHooker = DownloadErrorHooker
 	err = s.Client.FGetObjectResumable(s.ClientContext, bucketName, objectName, rDownloadTruncateFile, rangeOptions)
 	s.T().Logf("--->  object file :%s <---", rDownloadTruncateFile)
@@ -633,12 +649,12 @@ func (s *StorageTestSuite) Test_Upload_Object_With_Tampering_Content() {
 	var buffer bytes.Buffer
 	line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 	for i := 0; i < 1024; i++ {
-		buffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&buffer, "[%05d] %s\n", i, line)
 	}
 	var tamperingBuffer bytes.Buffer
 	tamperingLine := `0987654321,0987654321,0987654321,0987654321,0987654321,0987654321,0987654321,0987654321,098765432112`
 	for i := 0; i < 1024; i++ {
-		tamperingBuffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, tamperingLine))
+		fmt.Fprintf(&tamperingBuffer, "[%05d] %s\n", i, tamperingLine)
 	}
 
 	s.T().Log("---> CreateObject and HeadObject <---")
@@ -807,7 +823,7 @@ func (s *StorageTestSuite) Test_Object_with_Tag() {
 	line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 	// Create 1MiB content where each line contains 1024 characters.
 	for i := 0; i < 1024*300; i++ {
-		buffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&buffer, "[%05d] %s\n", i, line)
 	}
 
 	var tags storageTypes.ResourceTags
@@ -850,7 +866,7 @@ func (s *StorageTestSuite) Test_Object_And_Set_Tag() {
 	line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 	// Create 1MiB content where each line contains 1024 characters.
 	for i := 0; i < 1024*300; i++ {
-		buffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&buffer, "[%05d] %s\n", i, line)
 	}
 
 	s.T().Log("---> CreateObject and HeadObject <---")
@@ -906,7 +922,7 @@ func (s *StorageTestSuite) Test_Get_Object_With_ForcedSpEndpoint() {
 	line := `1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,1234567890,123456789012`
 	// Create 1MiB content where each line contains 1024 characters.
 	for i := 0; i < 1024*300; i++ {
-		buffer.WriteString(fmt.Sprintf("[%05d] %s\n", i, line))
+		fmt.Fprintf(&buffer, "[%05d] %s\n", i, line)
 	}
 
 	s.T().Log("---> CreateObject and HeadObject <---")

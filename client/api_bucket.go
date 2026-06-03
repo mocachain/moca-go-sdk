@@ -26,7 +26,6 @@ import (
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
 
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 
 	mocadTypes "github.com/mocachain/moca/v2/types"
@@ -339,7 +338,7 @@ func (c *Client) UpdateBucketVisibility(ctx context.Context, bucketName string,
 
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &bucketInfo.ChargedReadQuota, paymentAddr, visibility)
 	// return c.sendTxn(ctx, updateBucketMsg, opt.TxOpts)
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opt.TxOpts)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
 }
 
 // UpdateBucketPaymentAddr - Update the payment address of bucket. It will send the MsgUpdateBucketInfo msg to moca to update the meta.
@@ -365,7 +364,7 @@ func (c *Client) UpdateBucketPaymentAddr(ctx context.Context, bucketName string,
 
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &bucketInfo.ChargedReadQuota, paymentAddr, bucketInfo.Visibility)
 	// return c.sendTxn(ctx, updateBucketMsg, opt.TxOpts)
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opt.TxOpts)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
 }
 
 // SetBucketFlowRateLimit - Set the flow rate limit of the bucket. It will send the MsgSetBucketFlowRateLimit msg to moca to update the meta.
@@ -479,10 +478,10 @@ func (c *Client) UpdateBucketInfo(ctx context.Context, bucketName string, opts t
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opts.TxOpts)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
 }
 
-func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo, opt *gnfdSdkTypes.TxOption) (string, error) {
+func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo) (string, error) {
 	session, err := c.createStorageEvmSession(ctx, c.privateKey)
 	if err != nil {
 		return "", err
@@ -999,7 +998,7 @@ func (c *Client) BuyQuotaForBucket(ctx context.Context, bucketName string, targe
 		return "", err
 	}
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &targetQuota, paymentAddr, bucketInfo.Visibility)
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, opt.TxOpts)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
 }
 
 // ListBucketsByBucketID - List buckets by bucket ids.
