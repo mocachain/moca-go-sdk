@@ -73,7 +73,8 @@ jq --arg min_gas_price "$FEE_MARKET_MIN_GAS_PRICE" '
 
 # Keep the image-only e2e stack small. A GVG needs one primary SP plus
 # redundant_data_chunk_num + redundant_parity_chunk_num secondary SPs.
-# The default local stack has 3 SPs, so use 1+1 redundancy unless overridden.
+# The default local stack has 4 SPs, so 1+1 redundancy leaves one spare SP
+# for bucket migration coverage unless overridden.
 jq --argjson data_chunks "$REDUNDANT_DATA_CHUNK_NUM" --argjson parity_chunks "$REDUNDANT_PARITY_CHUNK_NUM" '
   .app_state.storage.params.versioned_params.redundant_data_chunk_num = $data_chunks |
   .app_state.storage.params.versioned_params.redundant_parity_chunk_num = $parity_chunks

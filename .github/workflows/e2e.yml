@@ -86,7 +86,7 @@ jobs:
             fi
             sleep 1
           done
-          for port in 9033 9034 9035; do
+          for port in 9033 9034 9035 9036; do
             ready=0
             for i in {1..180}; do
               if bash -lc "exec 3<>/dev/tcp/127.0.0.1/${port}" >/dev/null 2>&1; then
@@ -132,7 +132,7 @@ jobs:
           export GOCACHE="${RUNNER_TEMP}/go-build"
           echo "=== e2e network preflight ==="
           docker ps
-          ss -ltnp | grep -E '(:19090|:26657|:8545|:9033|:9034|:9035)' || true
+          ss -ltnp | grep -E '(:19090|:26657|:8545|:9033|:9034|:9035|:9036)' || true
           make e2e_test
 
       - name: Dump image stack logs on failure

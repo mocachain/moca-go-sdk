@@ -263,6 +263,8 @@ func localE2EHostPort(host, port string) (string, string, bool) {
 		return "127.0.0.1", "9034", true
 	case "sp-2":
 		return "127.0.0.1", "9035", true
+	case "sp-3":
+		return "127.0.0.1", "9036", true
 	default:
 		return "", "", false
 	}

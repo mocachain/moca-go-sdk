@@ -72,6 +72,8 @@ func bucketMigrateAdminAddr(endpoint string) (string, error) {
 		return "127.0.0.1:9034", nil
 	case "sp-2":
 		return "127.0.0.1:9035", nil
+	case "sp-3":
+		return "127.0.0.1:9036", nil
 	default:
 		return "", fmt.Errorf("unsupported non-local SP endpoint %q for local bucket migrate e2e", endpoint)
 	}
