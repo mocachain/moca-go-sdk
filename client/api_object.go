@@ -21,15 +21,15 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/rs/zerolog/log"
 
+	hashlib "github.com/mocachain/moca-common/go/hash"
+	"github.com/mocachain/moca-go-sdk/pkg/utils"
+	"github.com/mocachain/moca-go-sdk/types"
 	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	"github.com/mocachain/moca/v2/types/s3util"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
-	hashlib "github.com/mocachain/moca-common/go/hash"
-	"github.com/mocachain/moca-go-sdk/pkg/utils"
-	"github.com/mocachain/moca-go-sdk/types"
 )
 
 // IObjectClient interface defines functions related to object operations.
@@ -58,6 +58,7 @@ type IObjectClient interface {
 	GetObjectPolicy(ctx context.Context, bucketName, objectName string, principalAddr string) (*permTypes.Policy, error)
 	IsObjectPermissionAllowed(ctx context.Context, userAddr string, bucketName, objectName string, action permTypes.ActionType) (permTypes.Effect, error)
 	ListObjects(ctx context.Context, bucketName string, opts types.ListObjectsOptions) (types.ListObjectsResult, error)
+	GetRedundancyParams() (uint32, uint32, uint64, error)
 	ComputeHashRoots(reader io.Reader, isSerial bool) ([][]byte, int64, storageTypes.RedundancyType, error)
 	CreateFolder(ctx context.Context, bucketName, objectName string, opts types.CreateObjectOptions) (string, error)
 	DelegateCreateFolder(ctx context.Context, bucketName, objectName string, opts types.PutObjectOptions) error
@@ -653,7 +654,7 @@ func (c *Client) FPutObject(ctx context.Context, bucketName, objectName, filePat
 	if err != nil {
 		return err
 	}
-	defer fReader.Close()
+	defer func() { _ = fReader.Close() }()
 
 	// Save the file stat.
 	stat, err := fReader.Stat()
@@ -801,10 +802,10 @@ func (c *Client) FGetObject(ctx context.Context, bucketName, objectName, filePat
 	if err != nil {
 		return err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	_, err = io.Copy(fd, body)
-	fd.Close()
+	_ = fd.Close()
 	if err != nil {
 		return err
 	}
@@ -913,7 +914,7 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 			if err != nil {
 				return err
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			err = file.Truncate(truncateOffset)
 			if err != nil {
@@ -931,7 +932,7 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 	}
 	_, err = fd.Seek(startOffset, io.SeekStart)
 	if err != nil {
-		fd.Close()
+		_ = fd.Close()
 		return err
 	}
 
@@ -964,20 +965,20 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 		if err != nil {
 			return err
 		}
-		defer rd.Close()
+		defer func() { _ = rd.Close() }()
 
 		_, err = io.Copy(pw, rd)
 		log.Debug().Msg(fmt.Sprintf("get object for segment Range: %s, current partStartOffset: %d, segNum: %d", objectOption.Range, partStartOffset, segNum))
 		endT := time.Now().UnixNano() / 1000 / 1000 / 1000
 		if err != nil {
 			log.Error().Msg(fmt.Sprintf("get seg error,cost:%d second,seg number:%d,error:%s.\n", endT-startT, segNum, err.Error()))
-			fd.Close()
+			_ = fd.Close()
 		}
 
 		segNum++
 	}
 
-	fd.Close()
+	_ = fd.Close()
 
 	// 4) rename temp file
 	err = os.Rename(tempFilePath, filePath)
@@ -1442,11 +1443,11 @@ func (c *Client) UpdateObjectVisibility(ctx context.Context, bucketName, objectN
 ) (string, error) {
 	object, err := c.HeadObject(ctx, bucketName, objectName)
 	if err != nil {
-		return "", fmt.Errorf("object:%s not exists: %s\n", objectName, err.Error())
+		return "", fmt.Errorf("object:%s not exists: %s", objectName, err.Error())
 	}
 
 	if object.ObjectInfo.GetVisibility() == visibility {
-		return "", fmt.Errorf("the visibility of object:%s is already %s \n", objectName, visibility.String())
+		return "", fmt.Errorf("the visibility of object:%s is already %s", objectName, visibility.String())
 	}
 
 	updateObjectMsg := storageTypes.NewMsgUpdateObjectInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, objectName, visibility)

@@ -1,0 +1,181 @@
+networks:
+  moca-e2e:
+    driver: bridge
+
+services:
+  genesis-init:
+    image: ${MOCA_E2E_MOCAD_IMAGE:-ghcr.io/mocachain/mocad:latest}
+    volumes:
+      - ./.docker-shared:/output
+      - ./init-genesis.sh:/init-genesis.sh:ro
+    environment:
+      CHAIN_ID: moca_5151-1
+      DENOM: amoca
+      NUM_VALIDATORS: 1
+      NUM_SPS: 3
+      OUTPUT_DIR: /output
+      GENESIS_ACCOUNT_BALANCE: "100000000000000000000000000"
+      STAKING_BOND_AMOUNT: "10000000000000000000000000"
+      SP_MIN_DEPOSIT: "10000000000000000000000"
+      GOV_MIN_DEPOSIT: "10000000000000000000"
+      GOV_VOTING_PERIOD: 15s
+      BLOCK_TIME: 1s
+    networks:
+      - moca-e2e
+    entrypoint: ["/bin/bash", "/init-genesis.sh"]
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: moca
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmoca"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - moca-e2e
+
+  validator-0:
+    image: ${MOCA_E2E_MOCAD_IMAGE:-ghcr.io/mocachain/mocad:latest}
+    volumes:
+      - ./.docker-shared:/shared:ro
+      - ./entrypoint-validator.sh:/entrypoint-validator.sh:ro
+    environment:
+      VALIDATOR_NAME: validator-0
+      DENOM: amoca
+      CHAIN_ID: moca_5151-1
+    ports:
+      - "26657:26657"
+      - "19090:9090"
+      - "1317:1317"
+      - "8545:8545"
+      - "8560:8546"
+      - "26600:26656"
+    depends_on:
+      genesis-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: on-failure
+    networks:
+      - moca-e2e
+    entrypoint: ["/bin/bash", "/entrypoint-validator.sh"]
+
+  sp-0:
+    image: ${MOCA_E2E_SP_IMAGE:-ghcr.io/mocachain/moca-storage-provider:latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.docker-shared:/shared:ro
+      - ./entrypoint-sp.sh:/entrypoint-sp.sh:ro
+    environment:
+      SP_NAME: sp-0
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: moca
+      RPC_HOST: validator-0
+      RPC_PORT: 26657
+      CHAIN_ID: moca_5151-1
+      DENOM: amoca
+    ports:
+      - "9033:9033"
+      - "9400:9400"
+      - "9401:9401"
+      - "9402:9402"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      validator-0:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/9402'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+    restart: on-failure
+    networks:
+      - moca-e2e
+    entrypoint: ["/bin/bash", "/entrypoint-sp.sh"]
+
+  sp-1:
+    image: ${MOCA_E2E_SP_IMAGE:-ghcr.io/mocachain/moca-storage-provider:latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.docker-shared:/shared:ro
+      - ./entrypoint-sp.sh:/entrypoint-sp.sh:ro
+    environment:
+      SP_NAME: sp-1
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: moca
+      RPC_HOST: validator-0
+      RPC_PORT: 26657
+      CHAIN_ID: moca_5151-1
+      DENOM: amoca
+    ports:
+      - "9034:9033"
+      - "9500:9400"
+      - "9501:9401"
+      - "9502:9402"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      validator-0:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/9402'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+    restart: on-failure
+    networks:
+      - moca-e2e
+    entrypoint: ["/bin/bash", "/entrypoint-sp.sh"]
+
+  sp-2:
+    image: ${MOCA_E2E_SP_IMAGE:-ghcr.io/mocachain/moca-storage-provider:latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./.docker-shared:/shared:ro
+      - ./entrypoint-sp.sh:/entrypoint-sp.sh:ro
+    environment:
+      SP_NAME: sp-2
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: moca
+      RPC_HOST: validator-0
+      RPC_PORT: 26657
+      CHAIN_ID: moca_5151-1
+      DENOM: amoca
+    ports:
+      - "9035:9033"
+      - "9600:9400"
+      - "9601:9401"
+      - "9602:9402"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      validator-0:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/9402'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+    restart: on-failure
+    networks:
+      - moca-e2e
+    entrypoint: ["/bin/bash", "/entrypoint-sp.sh"]
