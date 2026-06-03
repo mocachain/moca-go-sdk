@@ -27,4 +27,8 @@ e2e_test:
 
 examples:
 	@echo "Building examples"
-	@cd ./examples && $(foreach v, $(filter-out examples/common.go,$(wildcard examples/*.go)), go build -mod=mod  $(notdir $(v)) common.go || exit 1;)
+	@cd ./examples && for f in *.go; do \
+		if [ "$$f" = "common.go" ]; then continue; fi; \
+		if ! rg -q '^func main\(' "$$f"; then continue; fi; \
+		go build -mod=mod "$$f" common.go || exit 1; \
+	done

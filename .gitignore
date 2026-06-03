@@ -1,2 +1,5 @@
 .idea/
 .DS_Store
+.github/e2e/.docker-shared/
+e2e/*.temp
+e2e/test-file-*

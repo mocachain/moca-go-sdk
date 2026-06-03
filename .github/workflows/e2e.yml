@@ -12,15 +12,9 @@ on:
       - develop
 
 env:
-  MocaTag: v1.6.0
-  MocaStorageProviderTag: feat-get-recommended-vgf
   GOPRIVATE: github.com/mocachain
-  GH_ACCESS_TOKEN: ${{ secrets.GH_TOKEN }}
-  MYSQL_USER: root
-  MYSQL_PASSWORD: root
-  MYSQL_ROOT_PASSWORD: root
-  MYSQL_IP: 127.0.0.1
-  MYSQL_PORT: 3306
+  MOCA_E2E_MOCAD_IMAGE: ghcr.io/mocachain/mocad:main
+  MOCA_E2E_SP_IMAGE: ghcr.io/mocachain/moca-storage-provider:main
 
 jobs:
   end-to-end-test:
@@ -28,21 +22,23 @@ jobs:
       matrix:
         go-version: [1.23.x]
         os: [ubuntu-latest]
+    env:
+      GOPRIVATE: ""
+      GONOPROXY: ""
+      GONOSUMDB: ""
+      GOPROXY: https://proxy.golang.org,direct
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+
       - name: Checkout code
         uses: actions/checkout@v4
+
       - uses: actions/cache@v4
         with:
-          # In order:
-          # * Module download cache
-          # * Build cache (Linux)
-          # * Build cache (Mac)
-          # * Build cache (Windows)
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
@@ -51,79 +47,66 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Setup GitHub Token
-        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
 
-      # Build Moca
-      - name: Build Moca
+      - name: Pull e2e images
+        working-directory: .github/e2e
         run: |
-          git clone https://github.com/mocachain/moca.git ../moca
-          cd ../moca
-          git checkout ${{ env.MocaTag }}
-          go install github.com/bufbuild/buf/cmd/buf@v1.28.0
-          make tools
-          make proto-gen
-          make build
-          cd ..
-      # Build Moca-SP
-      - name: Build Moca-SP
+          docker pull "${MOCA_E2E_MOCAD_IMAGE}"
+          docker pull "${MOCA_E2E_SP_IMAGE}"
+          docker pull mysql:8.0
+
+      - name: Start image-only local stack
+        working-directory: .github/e2e
         run: |
-          git clone https://github.com/mocachain/moca-storage-provider.git ../moca-storage-provider
-          cd ../moca-storage-provider
-          git checkout ${{ env.MocaStorageProviderTag }}
-          make install-tools
-          make build
-          cd ../moca-go-sdk
-      # Run MySQL
-      - name: Run MySQL
+          rm -rf .docker-shared
+          mkdir -p .docker-shared
+          docker compose -f docker-compose.yml down -v --remove-orphans || true
+          docker compose -f docker-compose.yml up -d
+          for i in {1..180}; do
+            height=$(curl -sf http://127.0.0.1:26657/status | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo 0)
+            if [ "${height}" -ge 5 ] 2>/dev/null; then
+              echo "chain ready at height ${height}"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose -f docker-compose.yml ps || true
+          docker compose -f docker-compose.yml logs || true
+          exit 1
+
+      - name: Extract mocad from image
         run: |
-          sudo /etc/init.d/mysql start
-          mysql -h ${{ env.MYSQL_IP }} -P ${{ env.MYSQL_PORT }} -u${{ env.MYSQL_USER }} -p${{ env.MYSQL_PASSWORD }} -e 'CREATE DATABASE sp_0; CREATE DATABASE sp_1;CREATE DATABASE sp_2; CREATE DATABASE sp_3;CREATE DATABASE sp_4; CREATE DATABASE sp_5; CREATE DATABASE sp_6;'
-      # Run Moca
-      - name: Run Moca
+          mkdir -p "${RUNNER_TEMP}/mocad-bin"
+          cid=$(docker create --entrypoint /bin/sh "${MOCA_E2E_MOCAD_IMAGE}" -c true)
+          docker cp "$cid:/usr/local/bin/mocad" "${RUNNER_TEMP}/mocad-bin/mocad" \
+            || docker cp "$cid:/usr/bin/mocad" "${RUNNER_TEMP}/mocad-bin/mocad"
+          docker rm "$cid"
+          chmod +x "${RUNNER_TEMP}/mocad-bin/mocad"
+
+      - name: Run SDK e2e tests
+        env:
+          MOCA_E2E_LOCALUP_DIR: ${{ github.workspace }}/.github/e2e/.docker-shared
+          MOCA_E2E_MOCAD: ${{ runner.temp }}/mocad-bin/mocad
+          MOCA_E2E_GRPC_ENDPOINT: 127.0.0.1:19090
+          MOCA_E2E_ENDPOINT: http://127.0.0.1:26657
+          MOCA_E2E_EVM_ENDPOINT: http://127.0.0.1:8545
         run: |
-          cd ../moca
-          bash ./deployment/localup/localup.sh all 1 8
-          bash ./deployment/localup/localup.sh export_sps 1 8 > sp.json
-          cat sp.json
-          cd ../moca-go-sdk
-      # Run Moca-SP
-      - name: Run Moca-SPs
-        run: |
-          cd ../moca-storage-provider
-          bash ./deployment/localup/localup.sh --generate $GITHUB_WORKSPACE/../moca/sp.json ${{ env.MYSQL_USER }} ${{ env.MYSQL_PASSWORD }} ${{ env.MYSQL_IP }}:${{ env.MYSQL_PORT }}
-          bash ./deployment/localup/localup.sh --reset
-          bash ./deployment/localup/localup.sh --start
-          sleep 60
-          ./deployment/localup/local_env/sp0/gnfd-sp0 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp0/config.toml
-          ./deployment/localup/local_env/sp1/gnfd-sp1 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp1/config.toml
-          ./deployment/localup/local_env/sp2/gnfd-sp2 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp2/config.toml
-          ./deployment/localup/local_env/sp3/gnfd-sp3 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp3/config.toml
-          ./deployment/localup/local_env/sp4/gnfd-sp4 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp4/config.toml
-          ./deployment/localup/local_env/sp5/gnfd-sp5 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp5/config.toml
-          ./deployment/localup/local_env/sp6/gnfd-sp6 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp6/config.toml
-          ./deployment/localup/local_env/sp7/gnfd-sp7 update.quota  --quota 5000000000 -c deployment/localup/local_env/sp7/config.toml
-          ps -ef | grep gnfd-sp | wc -l
-          tail -n 1000 deployment/localup/local_env/sp0/gnfd-sp.log
-          cd ../moca-go-sdk
-      # Run E2E Test
-      - name: start e2e
-        run: |
-          set +e
+          export GOMODCACHE="${RUNNER_TEMP}/go/pkg/mod"
+          export GOCACHE="${RUNNER_TEMP}/go-build"
+          echo "=== e2e network preflight ==="
+          docker ps
+          ss -ltnp | grep -E '(:19090|:26657|:8545|:9033|:9034|:9035)' || true
           make e2e_test
-          exit_status_command=$?
-          if [ $exit_status_command -eq 0 ]; then
-            echo "make e2e_test successful."
-          else
-            cd ../moca-storage-provider
-            cat ./deployment/localup/local_env/sp0/log.txt
-            cat ./deployment/localup/local_env/sp1/log.txt
-            cat ./deployment/localup/local_env/sp2/log.txt
-            cat ./deployment/localup/local_env/sp3/log.txt
-            cat ./deployment/localup/local_env/sp4/log.txt
-            cat ./deployment/localup/local_env/sp5/log.txt
-            cat ./deployment/localup/local_env/sp6/log.txt
-            cat ./deployment/localup/local_env/sp7/log.txt
-            exit $exit_status_command
-          fi
-          cd ..
+
+      - name: Dump image stack logs on failure
+        if: failure()
+        working-directory: .github/e2e
+        run: |
+          docker compose -f docker-compose.yml ps || true
+          docker compose -f docker-compose.yml logs || true
+
+      - name: Stop image stack
+        if: always()
+        working-directory: .github/e2e
+        run: |
+          docker compose -f docker-compose.yml down -v --remove-orphans || true
