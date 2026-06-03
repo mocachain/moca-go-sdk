@@ -77,11 +77,11 @@ func GetEndpointURL(endpoint string, secure bool) (*url.URL, error) {
 // checkEndpointUrl verifies if endpoint url is valid, and return error
 func checkEndpointUrl(endpointURL url.URL) error {
 	if endpointURL == EmptyURL {
-		return errors.New("Endpoint url is empty.")
+		return errors.New("endpoint url is empty")
 	}
 
 	if endpointURL.Path != "/" && endpointURL.Path != "" {
-		return errors.New("Endpoint paths invalid")
+		return errors.New("endpoint paths invalid")
 	}
 
 	host := endpointURL.Hostname()
@@ -142,7 +142,7 @@ func CloseResponse(resp *http.Response) {
 		if err != nil {
 			log.Info().Msg("close resp copy error" + err.Error())
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 }
 

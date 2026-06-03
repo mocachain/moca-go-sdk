@@ -22,6 +22,9 @@ func TestExecutor() {
 	}
 
 	relayFee, minAckRelayFee, err := client.GetMinAckRelayFee(context.Background())
+	if err != nil {
+		log.Fatalf("unable to get min ack relay fee, %v", err)
+	}
 
 	messages := bsctypes.NewExecutorBatchedMessage(client.GetDeployment(), relayFee, minAckRelayFee)
 	messages.CreatePaymentAccount(&types.MsgCreatePaymentAccount{Creator: account.GetAddress().String()})
