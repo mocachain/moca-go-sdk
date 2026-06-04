@@ -38,7 +38,7 @@ func TestStorageByOffChainAuth() {
 		log.Fatalf("fail to list in service sps")
 	}
 	// choose the first sp to be the primary SP
-	primarySP := spLists[6].GetOperatorAddress()
+	primarySP := spLists[0].GetOperatorAddress()
 	log.Println(primarySP)
 	// create bucket
 	_, err = cli.CreateBucket(ctx, bucketName, primarySP, types.CreateBucketOptions{})
@@ -73,7 +73,6 @@ func TestStorageByOffChainAuth() {
 	reader, info, err := cli.GetObject(ctx, bucketName, objectName, types.GetObjectOptions{})
 	handleErr(err, "GetObject")
 	log.Printf("get object %s successfully, size %d \n", info.ObjectName, info.Size)
-	handleErr(err, "GetObject")
 	objectBytes, err := io.ReadAll(reader)
 	handleErr(err, "ReadObject")
 	if !bytes.Equal(objectBytes, buffer.Bytes()) {

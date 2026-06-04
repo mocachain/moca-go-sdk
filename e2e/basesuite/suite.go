@@ -104,6 +104,10 @@ func resolveMocadPath() string {
 }
 
 func exportLocalPrivateKey(name, homeDir string) (string, error) {
+	if privateKey, err := exportLocalPrivateKeyFromDocker(name, homeDir); err == nil {
+		return privateKey, nil
+	}
+
 	cmd := exec.Command(
 		MocadPath,
 		"keys",
@@ -122,6 +126,57 @@ func exportLocalPrivateKey(name, homeDir string) (string, error) {
 		return "", fmt.Errorf("export private key for %s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func exportLocalPrivateKeyFromDocker(name, homeDir string) (string, error) {
+	containerName := imageStackContainerName(homeDir)
+	if containerName == "" {
+		return "", fmt.Errorf("no docker container mapped for %s", homeDir)
+	}
+
+	relHome, err := filepath.Rel(LocalupDir, filepath.Clean(homeDir))
+	if err != nil {
+		return "", fmt.Errorf("resolve docker key path failed: %w", err)
+	}
+
+	sharedHome := filepath.ToSlash(filepath.Join("/shared", relHome))
+	keyringDir := filepath.ToSlash(filepath.Join(sharedHome, "keyring-test"))
+	tmpHome := filepath.ToSlash(filepath.Join("/tmp/moca-e2e-export", strings.ReplaceAll(relHome, "/", "-")))
+
+	script := fmt.Sprintf(
+		"set -euo pipefail\n"+
+			"rm -rf %[1]s %[2]s\n"+
+			"mkdir -p %[1]s %[2]s\n"+
+			"cp -R %[3]s/. %[2]s/\n"+
+			"printf 'y\\n' | mocad keys export %[4]s --unarmored-hex --unsafe --keyring-backend test --home %[1]s --keyring-dir %[2]s",
+		shellQuote(tmpHome),
+		shellQuote(filepath.ToSlash(filepath.Join(tmpHome, "keyring-test"))),
+		shellQuote(keyringDir),
+		shellQuote(name),
+	)
+
+	cmd := exec.Command("docker", "exec", containerName, "/bin/bash", "-lc", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("docker export private key for %s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func imageStackContainerName(homeDir string) string {
+	base := filepath.Base(filepath.Clean(homeDir))
+	switch {
+	case strings.HasPrefix(base, "validator-"):
+		return "e2e-" + base + "-1"
+	case strings.HasPrefix(base, "challenger-"):
+		return "e2e-validator-0-1"
+	default:
+		return ""
+	}
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 func loadLocalAccount(name, homeDir string) (*types.Account, string, error) {
@@ -208,6 +263,8 @@ func localE2EHostPort(host, port string) (string, string, bool) {
 		return "127.0.0.1", "9034", true
 	case "sp-2":
 		return "127.0.0.1", "9035", true
+	case "sp-3":
+		return "127.0.0.1", "9036", true
 	default:
 		return "", "", false
 	}

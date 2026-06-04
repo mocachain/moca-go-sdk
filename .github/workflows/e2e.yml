@@ -5,11 +5,27 @@ on:
     branches:
       - main
       - develop
+    paths:
+      - "**/*.go"
+      - ".github/e2e/**"
+      - ".github/workflows/e2e.yml"
+      - "e2e/**"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
 
   pull_request:
     branches:
       - main
       - develop
+    paths:
+      - "**/*.go"
+      - ".github/e2e/**"
+      - ".github/workflows/e2e.yml"
+      - "e2e/**"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
 
 env:
   GOPRIVATE: github.com/mocachain
@@ -66,13 +82,34 @@ jobs:
             height=$(curl -sf http://127.0.0.1:26657/status | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo 0)
             if [ "${height}" -ge 5 ] 2>/dev/null; then
               echo "chain ready at height ${height}"
-              exit 0
+              break
             fi
             sleep 1
           done
-          docker compose -f docker-compose.yml ps || true
-          docker compose -f docker-compose.yml logs || true
-          exit 1
+          for port in 9033 9034 9035 9036; do
+            ready=0
+            for i in {1..180}; do
+              if bash -lc "exec 3<>/dev/tcp/127.0.0.1/${port}" >/dev/null 2>&1; then
+                echo "sp admin port ${port} is ready"
+                ready=1
+                break
+              fi
+              sleep 1
+            done
+            if [ "${ready}" -ne 1 ]; then
+              echo "sp admin port ${port} was not ready in time"
+              docker compose -f docker-compose.yml ps || true
+              docker compose -f docker-compose.yml logs || true
+              exit 1
+            fi
+          done
+          height=$(curl -sf http://127.0.0.1:26657/status | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo 0)
+          if [ "${height}" -lt 5 ] 2>/dev/null; then
+            echo "chain height did not reach readiness threshold"
+            docker compose -f docker-compose.yml ps || true
+            docker compose -f docker-compose.yml logs || true
+            exit 1
+          fi
 
       - name: Extract mocad from image
         run: |
@@ -95,7 +132,7 @@ jobs:
           export GOCACHE="${RUNNER_TEMP}/go-build"
           echo "=== e2e network preflight ==="
           docker ps
-          ss -ltnp | grep -E '(:19090|:26657|:8545|:9033|:9034|:9035)' || true
+          ss -ltnp | grep -E '(:19090|:26657|:8545|:9033|:9034|:9035|:9036)' || true
           make e2e_test
 
       - name: Dump image stack logs on failure

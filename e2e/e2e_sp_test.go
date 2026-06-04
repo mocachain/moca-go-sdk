@@ -8,12 +8,14 @@ import (
 	"cosmossdk.io/math"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	govTypesV1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
+	"github.com/mocachain/moca-go-sdk/types"
 	types2 "github.com/mocachain/moca/v2/sdk/types"
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	"github.com/stretchr/testify/suite"
-	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
-	"github.com/mocachain/moca-go-sdk/types"
 )
+
+const governanceMinDeposit = 10
 
 type SPTestSuite struct {
 	basesuite.BaseSuite
@@ -55,8 +57,6 @@ func (s *SPTestSuite) SetupSuite() {
 }
 
 func (s *SPTestSuite) Test_CreateStorageProvider() {
-	s.T().Skip("gov submit proposal cosmos tx path is incompatible with current remote moca main signer handling; tracked separately")
-
 	txHash, err := s.Client.Transfer(s.ClientContext, s.FundingAcc.GetAddress().String(), math.NewIntWithDecimal(10001, types2.DecimalMOCA), types2.TxOption{})
 	s.Require().NoError(err)
 	_, err = s.Client.WaitForTx(s.ClientContext, txHash)
@@ -92,11 +92,16 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 	blsProofBz, err := s.BlsAcc.GetKeyManager().Sign(tmhash.Sum(s.BlsAcc.GetKeyManager().PubKey().Bytes()))
 	s.Require().NoError(err)
 	proposalID, txHash, err := s.Client.CreateStorageProvider(s.ClientContext, s.FundingAcc.GetAddress().String(), s.SealAcc.GetAddress().String(), s.ApprovalAcc.GetAddress().String(), s.GcAcc.GetAddress().String(), s.MaintenanceAcc.GetAddress().String(),
-		hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
-		"https://sp0.moca.io",
-		math.NewIntWithDecimal(10000, types2.DecimalMOCA),
-		spTypes.Description{Moniker: "test"},
-		types.CreateStorageProviderOptions{ProposalMetaData: "create", ProposalTitle: "test", ProposalSummary: "test"})
+			hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
+			"https://sp0.moca.io",
+			math.NewIntWithDecimal(10000, types2.DecimalMOCA),
+			spTypes.Description{Moniker: "test"},
+			types.CreateStorageProviderOptions{
+				ProposalDepositAmount: math.NewIntWithDecimal(governanceMinDeposit, types2.DecimalMOCA),
+				ProposalMetaData:      "create",
+				ProposalTitle:         "test",
+				ProposalSummary:       "test",
+			})
 	s.Require().NoError(err)
 
 	createTx, err := s.Client.WaitForTx(s.ClientContext, txHash)
@@ -105,8 +110,9 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 
 	for {
 		p, err := s.Client.GetProposal(s.ClientContext, proposalID)
-		s.T().Logf("Proposal: %d, %s, %s, %s", p.Id, p.Status, p.VotingEndTime.String(), p.FinalTallyResult.String())
 		s.Require().NoError(err)
+		s.Require().NotNil(p)
+		s.T().Logf("Proposal: %d, %s, votingEnd=%v, tally=%+v", p.Id, p.Status, p.VotingEndTime, p.FinalTallyResult)
 		if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_VOTING_PERIOD {
 			break
 		}
@@ -123,8 +129,9 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 
 	for {
 		p, err := s.Client.GetProposal(s.ClientContext, proposalID)
-		s.T().Logf("Proposal: %d, %s, %s, %s", p.Id, p.Status, p.VotingEndTime.String(), p.FinalTallyResult.String())
 		s.Require().NoError(err)
+		s.Require().NotNil(p)
+		s.T().Logf("Proposal: %d, %s, votingEnd=%v, tally=%+v", p.Id, p.Status, p.VotingEndTime, p.FinalTallyResult)
 		if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_PASSED {
 			break
 		} else if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_FAILED {

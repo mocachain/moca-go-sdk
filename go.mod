@@ -11,6 +11,7 @@ require (
 	github.com/cometbft/cometbft v0.38.21
 	github.com/consensys/gnark-crypto v0.14.0
 	github.com/cosmos/cosmos-sdk v0.53.7
+	github.com/cosmos/cosmos-sdk/x/oracle/types v0.0.0
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/mocachain/moca-common/go v1.2.0-rc1
@@ -223,6 +224,7 @@ replace (
 	cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.2.0-rc2.0.20260526063327-ca1044372d6c
 	cosmossdk.io/x/nft => github.com/mocachain/moca-cosmos-sdk/x/nft v1.2.0-rc2.0.20260526063327-ca1044372d6c
 	cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.2.0-rc2.0.20260526063327-ca1044372d6c
+	github.com/cosmos/cosmos-sdk/x/oracle/types => ./compat/cosmos-sdk-x-oracle-types
 	github.com/0xPolygon/polygon-edge => github.com/mocachain/polygon-edge v1.3.3-moca.1
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.2.0-rc0.0.20260525065257-182cd579d91b
