@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cometbft/cometbft/proto/tendermint/p2p"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
@@ -26,6 +27,12 @@ import (
 	"github.com/mocachain/moca/v2/sdk/types"
 	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+)
+
+const (
+	simulatedGasAdjustmentNumerator   = uint64(125)
+	simulatedGasAdjustmentDenominator = uint64(100)
+	simulatedGasSafetyMargin          = uint64(10000)
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -251,42 +258,86 @@ func (c *Client) WaitForNBlocks(ctx context.Context, n int64) error {
 //
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) WaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	return c.waitForEvmTx(ctx, hash)
+	for {
+		txResponse, txErr := c.tryWaitForTx(ctx, hash)
+		if txErr == nil {
+			return txResponse, nil
+		}
+		if txErr != errTxNotFound {
+			return nil, txErr
+		}
+
+		evmResponse, evmErr := c.tryWaitForEvmTx(ctx, hash)
+		if evmErr == nil {
+			return evmResponse, nil
+		}
+		if evmErr != errTxNotFound {
+			return nil, evmErr
+		}
+
+		if err := c.WaitForNextBlock(ctx); err != nil {
+			return nil, errors.Wrap(err, "waiting for next block")
+		}
+	}
 }
 
-func (c *Client) waitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	for {
-		receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
-		if err != nil {
-			if err == ethereum.NotFound {
-				if err := c.WaitForNextBlock(ctx); err != nil {
-					return nil, errors.Wrap(err, "waiting for next block")
-				}
-				continue
-			}
-			return nil, err
-		}
+var errTxNotFound = fmt.Errorf("tx not found")
 
-		// `nil` could mean the transaction is in the mempool, invalidated, or was not sent in the first place.
-		if receipt == nil {
-			err := c.WaitForNextBlock(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "waiting for next block")
-			}
-			continue
-		}
+func (c *Client) tryWaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
+	var (
+		txResponse *ctypes.ResultTx
+		err        error
+		waitTxCtx  context.Context
+		cancelFunc context.CancelFunc
+	)
+	queryHash := strings.TrimPrefix(hash, "0x")
 
-		if receipt.Status != ethtypes.ReceiptStatusSuccessful {
-			return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
-		}
-
-		h, _ := hex.DecodeString(hash)
-		return &ctypes.ResultTx{
-			Hash:   h,
-			Height: receipt.BlockNumber.Int64(),
-			// todo: fill in the rest of the fields
-		}, nil
+	// when websocket conn is used, use a short timeout context to achieve the retry mechanism
+	if c.useWebsocketConn {
+		waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
+		txResponse, err = c.chainClient.Tx(waitTxCtx, queryHash)
+		cancelFunc()
+	} else {
+		txResponse, err = c.chainClient.Tx(ctx, queryHash)
 	}
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
+			return nil, errTxNotFound
+		}
+		return nil, errors.Wrapf(err, "fetching tx '%s'", hash)
+	}
+	if txResponse == nil {
+		return nil, errTxNotFound
+	}
+	if txResponse.TxResult.Code != 0 {
+		return nil, fmt.Errorf("transaction %s failed with response code: %d, codespace:%s, log:%s", hash, txResponse.TxResult.Code, txResponse.TxResult.Codespace, txResponse.TxResult.Log)
+	}
+	return txResponse, nil
+}
+
+func (c *Client) tryWaitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
+	receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
+	if err != nil {
+		if err == ethereum.NotFound {
+			return nil, errTxNotFound
+		}
+		return nil, err
+	}
+
+	if receipt == nil {
+		return nil, errTxNotFound
+	}
+
+	if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+		return nil, fmt.Errorf("transaction %s failed with status: %d", hash, receipt.Status)
+	}
+
+	h, _ := hex.DecodeString(hash)
+	return &ctypes.ResultTx{
+		Hash:   h,
+		Height: receipt.BlockNumber.Int64(),
+		// todo: fill in the rest of the fields
+	}, nil
 }
 
 // BroadcastTx - Broadcast a transaction containing the provided message(s) to the chain.
@@ -313,7 +364,11 @@ func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.T
 			}
 		}
 	}
-	resp, err := c.chainClient.BroadcastTx(ctx, msgs, txOpt, opts...)
+	effectiveTxOpt, err := c.withBufferedSimulatedGas(ctx, msgs, txOpt, opts...)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.chainClient.BroadcastTx(ctx, msgs, effectiveTxOpt, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -338,6 +393,51 @@ func (c *Client) BroadcastTx(ctx context.Context, msgs []sdk.Msg, txOpt *types.T
 // - ret2: Return error when the request failed, otherwise return nil.
 func (c *Client) SimulateTx(ctx context.Context, msgs []sdk.Msg, txOpt types.TxOption, opts ...grpc.CallOption) (*tx.SimulateResponse, error) {
 	return c.chainClient.SimulateTx(ctx, msgs, &txOpt, opts...)
+}
+
+func (c *Client) withBufferedSimulatedGas(ctx context.Context, msgs []sdk.Msg, txOpt *types.TxOption, opts ...grpc.CallOption) (*types.TxOption, error) {
+	if txOpt != nil && txOpt.NoSimulate {
+		return txOpt, nil
+	}
+
+	var effectiveTxOpt types.TxOption
+	if txOpt != nil {
+		effectiveTxOpt = *txOpt
+	}
+
+	simulateRes, err := c.SimulateTx(ctx, msgs, effectiveTxOpt, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	gasLimit := adjustedSimulatedGasLimit(simulateRes.GasInfo.GetGasUsed())
+	gasPrice, err := simulatedGasPrice(simulateRes.GasInfo.GetMinGasPrice())
+	if err != nil {
+		return nil, err
+	}
+
+	effectiveTxOpt.NoSimulate = true
+	effectiveTxOpt.GasLimit = gasLimit
+	effectiveTxOpt.FeeAmount = sdk.NewCoins(
+		sdk.NewCoin(gasPrice.Denom, gasPrice.Amount.Mul(sdkmath.NewIntFromUint64(gasLimit))),
+	)
+
+	return &effectiveTxOpt, nil
+}
+
+func adjustedSimulatedGasLimit(gasUsed uint64) uint64 {
+	if gasUsed == 0 {
+		return 0
+	}
+	adjusted := (gasUsed*simulatedGasAdjustmentNumerator + simulatedGasAdjustmentDenominator - 1) / simulatedGasAdjustmentDenominator
+	return adjusted + simulatedGasSafetyMargin
+}
+
+func simulatedGasPrice(minGasPrice string) (sdk.Coin, error) {
+	if minGasPrice == "" {
+		return sdk.NewCoin(types.Denom, sdkmath.NewInt(types.DefaultGasPrice)), nil
+	}
+	return sdk.ParseCoinNormalized(minGasPrice)
 }
 
 // GetSyncing - Retrieve the syncing status of the node.

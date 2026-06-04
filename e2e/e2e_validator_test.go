@@ -30,13 +30,14 @@ func (s *ValidatorTestSuite) SetupSuite() {
 
 func (s *ValidatorTestSuite) Test_Validator_Operations() {
 	newValAccount, _, _ := types.NewAccount("new_validator")
+	newRelayerAccount, _, _ := types.NewAccount("new_validator_relayer")
+	newChallengerAccount, _, _ := types.NewAccount("new_validator_challenger")
 	newValEd25519PubKey := hex.EncodeToString(ed25519.GenPrivKey().PubKey().Bytes())
 	newValidatorAddr := newValAccount.GetAddress()
 	s.T().Logf("new validator address is %s", newValidatorAddr.String())
 
 	// transfer some funds to the new validator
 	validator0Account := s.DefaultAccount
-
 	txHash, err := s.Client.Transfer(s.ClientContext, newValidatorAddr.String(), math.NewIntWithDecimal(1000, gnfdsdktypes.DecimalMOCA), gnfdsdktypes.TxOption{})
 	s.Require().NoError(err)
 
@@ -56,7 +57,7 @@ func (s *ValidatorTestSuite) Test_Validator_Operations() {
 
 	description := stakeTypes.Description{Moniker: "test_new_validator"}
 	rates := stakeTypes.CommissionRates{
-		Rate:          stakeTypes.DefaultMinCommissionRate,
+		Rate:          math.LegacyNewDecWithPrec(5, 2),
 		MaxRate:       math.LegacyOneDec(),
 		MaxChangeRate: math.LegacyOneDec(),
 	}
@@ -73,11 +74,11 @@ func (s *ValidatorTestSuite) Test_Validator_Operations() {
 		newValidatorAddr.String(),
 		newValEd25519PubKey,
 		newValAccount.GetAddress().String(),
-		"0xA4A2957E858529FFABBBb483D1D704378a9fca6b",
-		"0x4038993E087832D84e2Ac855d27f6b0b2EEc1907",
+		newRelayerAccount.GetAddress().String(),
+		newChallengerAccount.GetAddress().String(),
 		hex.EncodeToString(blsPubKey),
 		hex.EncodeToString(blsProofBz),
-		math.NewIntWithDecimal(1, 18),
+		math.NewIntWithDecimal(governanceMinDeposit, gnfdsdktypes.DecimalMOCA),
 		"create new validator",
 		"create new validator",
 		"",
@@ -94,7 +95,8 @@ func (s *ValidatorTestSuite) Test_Validator_Operations() {
 	for {
 		p, err := s.Client.GetProposal(s.ClientContext, proposalID)
 		s.Require().NoError(err)
-		s.T().Logf("Proposal: %d, %s, %s, %s", p.Id, p.Status, p.VotingEndTime.String(), p.FinalTallyResult.String())
+		s.Require().NotNil(p)
+		s.T().Logf("Proposal: %d, %s, votingEnd=%v, tally=%+v", p.Id, p.Status, p.VotingEndTime, p.FinalTallyResult)
 		if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_PASSED {
 			break
 		} else if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_FAILED {
@@ -152,11 +154,25 @@ func (s *ValidatorTestSuite) Test_Validator_Operations() {
 	// query the new validator, status is BONDED again
 	validators, err = s.Client.ListValidators(context.Background(), "BOND_STATUS_BONDED")
 	s.Require().NoError(err)
-	s.Require().Equal(len(validators.Validators), 2)
+	isPresent = false
+	for _, v := range validators.Validators {
+		if v.SelfDelAddress == newValidatorAddr.String() {
+			isPresent = true
+		}
+	}
+	s.Require().True(isPresent)
 
 	// create a proposal to impeach the new Validator
 	s.Client.SetDefaultAccount(validator0Account)
-	proposalID, txHash, err = s.Client.ImpeachValidator(context.Background(), newValidatorAddr.String(), delegationAmount, "title", "summary ", "meta", gnfdsdktypes.TxOption{})
+	proposalID, txHash, err = s.Client.ImpeachValidator(
+		context.Background(),
+		newValidatorAddr.String(),
+		math.NewIntWithDecimal(governanceMinDeposit, gnfdsdktypes.DecimalMOCA),
+		"title",
+		"summary ",
+		"meta",
+		gnfdsdktypes.TxOption{},
+	)
 	s.Require().NoError(err)
 	_, err = s.Client.WaitForTx(s.ClientContext, txHash)
 	s.Require().NoError(err)
@@ -170,7 +186,13 @@ func (s *ValidatorTestSuite) Test_Validator_Operations() {
 	s.Require().NoError(err)
 	validators, err = s.Client.ListValidators(context.Background(), "BOND_STATUS_BONDED")
 	s.Require().NoError(err)
-	s.Require().Equal(len(validators.Validators), 1)
+	isPresent = false
+	for _, v := range validators.Validators {
+		if v.SelfDelAddress == newValidatorAddr.String() {
+			isPresent = true
+		}
+	}
+	s.Require().False(isPresent)
 }
 
 func TestValidatorTestSuite(t *testing.T) {

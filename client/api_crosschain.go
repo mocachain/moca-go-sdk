@@ -27,7 +27,6 @@ type ICrossChainClient interface {
 func (c *Client) TransferOut(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (*sdk.TxResponse, error) {
 	return nil, errCrossChainFeatureRemoved
 }
-
 func (c *Client) Claims(ctx context.Context, srcChainId, destChainId uint32, sequence uint64,
 	timestamp uint64, payload []byte, voteAddrSet []uint64, aggSignature []byte, txOption gnfdSdkTypes.TxOption,
 ) (*sdk.TxResponse, error) {

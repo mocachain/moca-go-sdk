@@ -334,32 +334,20 @@ func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.I
 //
 // - ret2: Return error if transferred failed, otherwise return nil.
 func (c *Client) MultiTransfer(ctx context.Context, details []types.TransferDetail, txOption gnfdSdkTypes.TxOption) (string, error) {
-	outputs := make([]bankTypes.Output, 0)
 	denom := gnfdSdkTypes.Denom
-	sum := math.NewInt(0)
+	from := c.MustGetDefaultAccount().GetAddress()
+	msgs := make([]sdk.Msg, 0, len(details))
 	for i := 0; i < len(details); i++ {
-		_, err := sdk.AccAddressFromHexUnsafe(details[i].ToAddress)
+		to, err := sdk.AccAddressFromHexUnsafe(details[i].ToAddress)
 		if err != nil {
 			return "", err
 		}
 		if details[i].Amount.IsNil() || details[i].Amount.IsNegative() {
 			return "", fmt.Errorf("transfer amount is not valid")
 		}
-		outputs = append(outputs, bankTypes.Output{
-			Address: details[i].ToAddress,
-			Coins:   []sdk.Coin{{Denom: denom, Amount: details[i].Amount}},
-		})
-		sum = sum.Add(details[i].Amount)
+		msgs = append(msgs, bankTypes.NewMsgSend(from, to, sdk.NewCoins(sdk.NewCoin(denom, details[i].Amount))))
 	}
-	in := bankTypes.Input{
-		Address: c.MustGetDefaultAccount().GetAddress().String(),
-		Coins:   []sdk.Coin{{Denom: denom, Amount: sum}},
-	}
-	msg := &bankTypes.MsgMultiSend{
-		Inputs:  []bankTypes.Input{in},
-		Outputs: outputs,
-	}
-	tx, err := c.BroadcastTx(ctx, []sdk.Msg{msg}, &txOption)
+	tx, err := c.BroadcastTx(ctx, msgs, &txOption)
 	if err != nil {
 		return "", err
 	}

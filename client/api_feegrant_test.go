@@ -17,15 +17,15 @@ func TestFeegrantNormalizeAccountAddress_HexInputReturnsBech32(t *testing.T) {
 	km, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
 	require.NoError(t, err)
 
-	acc, bech32Addr, err := normalizeFeeGrantAccountAddress(km.GetAddr().String())
+	acc, normalizedAddr, err := normalizeFeeGrantAccountAddress(km.GetAddr().String())
 	require.NoError(t, err)
 	require.Equal(t, km.GetAddr(), acc)
-	expectedBech32, err := feeGrantAddressCodec.BytesToString(km.GetAddr())
+	expectedAddr, err := cmdcfg.NewMultiPrefixBech32AccCodec().BytesToString(km.GetAddr())
 	require.NoError(t, err)
-	require.Equal(t, expectedBech32, bech32Addr)
+	require.Equal(t, expectedAddr, normalizedAddr)
 }
 
-func TestFeegrantNormalizeAccountAddress_CosmosBech32InputReturnsPrimaryBech32(t *testing.T) {
+func TestFeegrantNormalizeAccountAddress_CosmosBech32InputReturnsBech32(t *testing.T) {
 	km, err := sdkkeys.NewPrivateKeyManager("2a3f0f19fbcb057e053696879207324c24f601ab47db92676cc4958ea9089761")
 	require.NoError(t, err)
 
@@ -33,12 +33,12 @@ func TestFeegrantNormalizeAccountAddress_CosmosBech32InputReturnsPrimaryBech32(t
 	cosmosBech32, err := cosmosCodec.BytesToString(km.GetAddr())
 	require.NoError(t, err)
 
-	acc, bech32Addr, err := normalizeFeeGrantAccountAddress(cosmosBech32)
+	acc, normalizedAddr, err := normalizeFeeGrantAccountAddress(cosmosBech32)
 	require.NoError(t, err)
 	require.Equal(t, km.GetAddr(), acc)
-	expectedBech32, err := feeGrantAddressCodec.BytesToString(km.GetAddr())
+	expectedAddr, err := cmdcfg.NewMultiPrefixBech32AccCodec().BytesToString(km.GetAddr())
 	require.NoError(t, err)
-	require.Equal(t, expectedBech32, bech32Addr)
+	require.Equal(t, expectedAddr, normalizedAddr)
 }
 
 func TestFeegrantNewGrantAllowanceMsg_UsesBech32Addresses(t *testing.T) {
@@ -54,13 +54,13 @@ func TestFeegrantNewGrantAllowanceMsg_UsesBech32Addresses(t *testing.T) {
 	msg, err := newFeeGrantAllowanceMsg(granterKM.GetAddr(), granteeKM.GetAddr().String(), &allowance)
 	require.NoError(t, err)
 
-	_, granterBech32, err := normalizeFeeGrantAccountAddress(granterKM.GetAddr().String())
+	_, granterAddrBech32, err := normalizeFeeGrantAccountAddress(granterKM.GetAddr().String())
 	require.NoError(t, err)
-	_, granteeBech32, err := normalizeFeeGrantAccountAddress(granteeKM.GetAddr().String())
+	_, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeKM.GetAddr().String())
 	require.NoError(t, err)
 
-	require.Equal(t, granterBech32, msg.Granter)
-	require.Equal(t, granteeBech32, msg.Grantee)
+	require.Equal(t, granterAddrBech32, msg.Granter)
+	require.Equal(t, granteeAddrBech32, msg.Grantee)
 }
 
 func TestFeegrantNewRevokeMsg_UsesBech32Addresses(t *testing.T) {
@@ -72,11 +72,11 @@ func TestFeegrantNewRevokeMsg_UsesBech32Addresses(t *testing.T) {
 	msg, err := newFeeGrantRevokeMsg(granterKM.GetAddr(), granteeKM.GetAddr().String())
 	require.NoError(t, err)
 
-	_, granterBech32, err := normalizeFeeGrantAccountAddress(granterKM.GetAddr().String())
+	_, granterAddrBech32, err := normalizeFeeGrantAccountAddress(granterKM.GetAddr().String())
 	require.NoError(t, err)
-	_, granteeBech32, err := normalizeFeeGrantAccountAddress(granteeKM.GetAddr().String())
+	_, granteeAddrBech32, err := normalizeFeeGrantAccountAddress(granteeKM.GetAddr().String())
 	require.NoError(t, err)
 
-	require.Equal(t, granterBech32, msg.Granter)
-	require.Equal(t, granteeBech32, msg.Grantee)
+	require.Equal(t, granterAddrBech32, msg.Granter)
+	require.Equal(t, granteeAddrBech32, msg.Grantee)
 }

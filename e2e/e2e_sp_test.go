@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+const governanceMinDeposit = 10
+
 type SPTestSuite struct {
 	basesuite.BaseSuite
 	OperatorAcc    *types.Account
@@ -90,11 +92,16 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 	blsProofBz, err := s.BlsAcc.GetKeyManager().Sign(tmhash.Sum(s.BlsAcc.GetKeyManager().PubKey().Bytes()))
 	s.Require().NoError(err)
 	proposalID, txHash, err := s.Client.CreateStorageProvider(s.ClientContext, s.FundingAcc.GetAddress().String(), s.SealAcc.GetAddress().String(), s.ApprovalAcc.GetAddress().String(), s.GcAcc.GetAddress().String(), s.MaintenanceAcc.GetAddress().String(),
-		hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
-		"https://sp0.moca.io",
-		math.NewIntWithDecimal(10000, types2.DecimalMOCA),
-		spTypes.Description{Moniker: "test"},
-		types.CreateStorageProviderOptions{ProposalMetaData: "create", ProposalTitle: "test", ProposalSummary: "test"})
+			hex.EncodeToString(s.BlsAcc.GetKeyManager().PubKey().Bytes()), hex.EncodeToString(blsProofBz),
+			"https://sp0.moca.io",
+			math.NewIntWithDecimal(10000, types2.DecimalMOCA),
+			spTypes.Description{Moniker: "test"},
+			types.CreateStorageProviderOptions{
+				ProposalDepositAmount: math.NewIntWithDecimal(governanceMinDeposit, types2.DecimalMOCA),
+				ProposalMetaData:      "create",
+				ProposalTitle:         "test",
+				ProposalSummary:       "test",
+			})
 	s.Require().NoError(err)
 
 	createTx, err := s.Client.WaitForTx(s.ClientContext, txHash)
@@ -103,8 +110,9 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 
 	for {
 		p, err := s.Client.GetProposal(s.ClientContext, proposalID)
-		s.T().Logf("Proposal: %d, %s, %s, %s", p.Id, p.Status, p.VotingEndTime.String(), p.FinalTallyResult.String())
 		s.Require().NoError(err)
+		s.Require().NotNil(p)
+		s.T().Logf("Proposal: %d, %s, votingEnd=%v, tally=%+v", p.Id, p.Status, p.VotingEndTime, p.FinalTallyResult)
 		if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_VOTING_PERIOD {
 			break
 		}
@@ -121,8 +129,9 @@ func (s *SPTestSuite) Test_CreateStorageProvider() {
 
 	for {
 		p, err := s.Client.GetProposal(s.ClientContext, proposalID)
-		s.T().Logf("Proposal: %d, %s, %s, %s", p.Id, p.Status, p.VotingEndTime.String(), p.FinalTallyResult.String())
 		s.Require().NoError(err)
+		s.Require().NotNil(p)
+		s.T().Logf("Proposal: %d, %s, votingEnd=%v, tally=%+v", p.Id, p.Status, p.VotingEndTime, p.FinalTallyResult)
 		if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_PASSED {
 			break
 		} else if p.Status == govTypesV1.ProposalStatus_PROPOSAL_STATUS_FAILED {

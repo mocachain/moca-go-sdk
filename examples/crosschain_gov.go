@@ -1,66 +1,9 @@
 package main
 
 import (
-	"context"
 	"log"
-
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	"github.com/mocachain/moca-go-sdk/client"
-	"github.com/mocachain/moca-go-sdk/types"
-	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 )
 
 func TestCrossChainGOv() {
-	account, _ := types.NewAccountFromPrivateKey("proposer", privateKey)
-	cli, _ := client.New(chainId, rpcAddr, evmRpcAddr, privateKey, client.Option{DefaultAccount: account})
-	ctx := context.Background()
-
-	// The example below is for parameter change, each proposal can have only 1 msg, either change parameter or upgrade contract
-	proposalID, txHash, err := cli.SubmitProposal(
-		ctx,
-		[]sdk.Msg{parameterChange()}, // or upgradeContract() for upgrading contract
-		math.NewIntWithDecimal(1000, gnfdSdkTypes.DecimalMOCA), // deposit, various from different env
-		"Change BSC contract parameter",
-		"Change BSC contract parameter",
-		types.SubmitProposalOptions{TxOpts: gnfdSdkTypes.TxOption{}},
-	)
-	if err != nil {
-		log.Fatalf("unable to submit proposal , %v", err)
-	}
-	if _, err = cli.WaitForTx(ctx, txHash); err != nil {
-		log.Fatalf("unable to confirm proposal tx, %v", err)
-	}
-
-	// Have validators to vote for the proposal
-	// there should be enough validators to vote for the proposal
-	validatorPrivKey := "0x..."
-	validatorAcct, _ := types.NewAccountFromPrivateKey("validator", validatorPrivKey)
-	cli.SetDefaultAccount(validatorAcct)
-	voteTxHash, err := cli.VoteProposal(ctx, proposalID, govv1.OptionYes, types.VoteProposalOptions{})
-	if err != nil {
-		log.Fatalf("unable to submit vote, %v", err)
-	}
-	if _, err = cli.WaitForTx(ctx, voteTxHash); err != nil {
-		log.Fatalf("unable to confirm vote tx, %v", err)
-	}
-}
-
-// Suppose we want to modify a parameter of contract 0x40eC91B82D7aCAA065d54B08D751505D479b0E43, fill in CrossChainParamsChange as below
-// note: Values if a slice of hex representation of the value you want to modify to(must not include 0x prefix), Targets defines the target contract address(es).
-func parameterChange() sdk.Msg {
-	govAcctAddress := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-	msgUpdateParams := &govv1.MsgUpdateCrossChainParams{
-		Authority: govAcctAddress,
-		Params: govv1.CrossChainParamsChange{
-			Key:     "batchSizeForOracle",                                                         // The parameter name.
-			Values:  []string{"0000000000000000000000000000000000000000000000000000000000000034"}, // the value in hex format. The length might vary depend on the exact parameter you want to change.
-			Targets: []string{"0x40eC91B82D7aCAA065d54B08D751505D479b0E43"},                       // the contract's address
-		},
-		DestChainId: 97, // Dest BSC chain ID
-	}
-	return msgUpdateParams
+	log.Println("cross-chain governance examples are no longer available because github.com/mocachain/moca/v2 main removed the crosschain module")
 }

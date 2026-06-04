@@ -58,6 +58,7 @@ type IObjectClient interface {
 	GetObjectPolicy(ctx context.Context, bucketName, objectName string, principalAddr string) (*permTypes.Policy, error)
 	IsObjectPermissionAllowed(ctx context.Context, userAddr string, bucketName, objectName string, action permTypes.ActionType) (permTypes.Effect, error)
 	ListObjects(ctx context.Context, bucketName string, opts types.ListObjectsOptions) (types.ListObjectsResult, error)
+	GetRedundancyParams() (uint32, uint32, uint64, error)
 	ComputeHashRoots(reader io.Reader, isSerial bool) ([][]byte, int64, storageTypes.RedundancyType, error)
 	CreateFolder(ctx context.Context, bucketName, objectName string, opts types.CreateObjectOptions) (string, error)
 	DelegateCreateFolder(ctx context.Context, bucketName, objectName string, opts types.PutObjectOptions) error
@@ -973,9 +974,9 @@ func (c *Client) FGetObjectResumable(ctx context.Context, bucketName, objectName
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_ = rd.Close()
-		}()
+			defer func() {
+				_ = rd.Close()
+			}()
 
 		_, err = io.Copy(pw, rd)
 		log.Debug().Msg(fmt.Sprintf("get object for segment Range: %s, current partStartOffset: %d, segNum: %d", objectOption.Range, partStartOffset, segNum))

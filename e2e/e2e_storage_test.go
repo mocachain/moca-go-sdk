@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,7 +18,6 @@ import (
 	"github.com/mocachain/moca-go-sdk/e2e/basesuite"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
 	"github.com/mocachain/moca-go-sdk/types"
-	"github.com/mocachain/moca/v2/sdk/keys"
 	mcSDkTypes "github.com/mocachain/moca/v2/sdk/types"
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	mocadTypes "github.com/mocachain/moca/v2/types"
@@ -43,10 +44,48 @@ func (s *StorageTestSuite) SetupSuite() {
 			break
 		}
 	}
+
+	s.requireStorageAdminAvailable()
 }
 
 func TestStorageTestSuite(t *testing.T) {
 	suite.Run(t, new(StorageTestSuite))
+}
+
+func (s *StorageTestSuite) requireStorageAdminAvailable() {
+	s.Require().NotEmpty(s.PrimarySP.Endpoint, "storage tests require a primary SP endpoint")
+
+	adminAddr, err := storageAdminAddr(s.PrimarySP.Endpoint)
+	s.Require().NoError(err, "storage tests require a resolvable SP admin endpoint")
+
+	conn, err := net.DialTimeout("tcp", adminAddr, 2*time.Second)
+	s.Require().NoError(err, "storage tests require reachable SP admin endpoint %s", adminAddr)
+	_ = conn.Close()
+}
+
+func storageAdminAddr(endpoint string) (string, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", err
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("empty host in endpoint %q", endpoint)
+	}
+
+	switch host {
+	case "127.0.0.1", "localhost", "host.docker.internal", "sp-0":
+		return "127.0.0.1:9033", nil
+	case "sp-1":
+		return "127.0.0.1:9034", nil
+	case "sp-2":
+		return "127.0.0.1:9035", nil
+	case "sp-3":
+		return "127.0.0.1:9036", nil
+	default:
+		return net.JoinHostPort(host, "9033"), nil
+	}
 }
 
 func (s *StorageTestSuite) Test_Bucket() {
@@ -203,11 +242,16 @@ func (s *StorageTestSuite) Test_Object() {
 	s.Require().NoError(err)
 
 	time.Sleep(5 * time.Second)
-
 	s.T().Log("---> Get bucket quota <---")
 
 	concurrentNumber := 5
 	downloadCount := 5
+	requiredQuota := uint64(objectSize) * uint64(concurrentNumber) * uint64(downloadCount)
+	buyQuotaTx, err := s.Client.BuyQuotaForBucket(s.ClientContext, bucketName, requiredQuota, types.BuyQuotaOption{})
+	s.Require().NoError(err)
+	_, err = s.Client.WaitForTx(s.ClientContext, buyQuotaTx)
+	s.Require().NoError(err)
+
 	quota0, err := s.Client.GetBucketReadQuota(s.ClientContext, bucketName)
 	s.Require().NoError(err)
 
@@ -223,6 +267,8 @@ func (s *StorageTestSuite) Test_Object() {
 					fmt.Printf("error: %v", err)
 					quota2, _ := s.Client.GetBucketReadQuota(s.ClientContext, bucketName)
 					fmt.Printf("quota: %v", quota2)
+					s.NoError(err)
+					return
 				}
 				objectBytes, err := io.ReadAll(objectContent)
 				s.Require().NoError(err)
@@ -235,9 +281,9 @@ func (s *StorageTestSuite) Test_Object() {
 	expectQuotaUsed := int(objectSize) * concurrentNumber * downloadCount
 	quota1, err := s.Client.GetBucketReadQuota(s.ClientContext, bucketName)
 	s.Require().NoError(err)
-	freeQuotaConsumed := quota1.FreeConsumedSize - quota0.FreeConsumedSize
-	// the consumed quota and free quota should be right
-	s.Require().Equal(uint64(expectQuotaUsed), freeQuotaConsumed)
+	readQuotaConsumed := quota1.ReadConsumedSize - quota0.ReadConsumedSize
+	// The consumed quota should match all successful downloads. It may be charged quota when the test buys quota.
+	s.Require().Equal(uint64(expectQuotaUsed), readQuotaConsumed)
 
 	s.T().Log("---> PutObjectPolicy <---")
 	principal, _, err := types.NewAccount("principal")
@@ -266,10 +312,17 @@ func (s *StorageTestSuite) Test_Object() {
 	s.T().Logf("get object policy:%s\n", objectPolicy.String())
 
 	s.T().Log("--->  ListObjectPolicies <---")
-	objectPolicies, err := s.Client.ListObjectPolicies(s.ClientContext, objectName, bucketName, uint32(permTypes.ACTION_GET_OBJECT), types.ListObjectPoliciesOptions{})
-	s.Require().NoError(err)
-	s.Require().Equal(resource.RESOURCE_TYPE_OBJECT.String(), resource.ResourceType_name[objectPolicies.Policies[0].ResourceType])
-	s.T().Logf("list object policies principal type:%d principal value:%s \n", objectPolicies.Policies[0].PrincipalType, objectPolicies.Policies[0].PrincipalValue)
+	var objectPolicies types.ListObjectPoliciesResponse
+	s.Require().Eventually(func() bool {
+		objectPolicies, err = s.Client.ListObjectPolicies(s.ClientContext, objectName, bucketName, uint32(permTypes.ACTION_GET_OBJECT), types.ListObjectPoliciesOptions{})
+		if err != nil {
+			return false
+		}
+		return len(objectPolicies.Policies) > 0
+	}, 30*time.Second, time.Second)
+	policyMeta := objectPolicies.Policies[0]
+	s.Require().Equal(resource.RESOURCE_TYPE_OBJECT.String(), resource.ResourceType_name[policyMeta.ResourceType])
+	s.T().Logf("list object policies principal type:%d principal value:%s \n", policyMeta.PrincipalType, policyMeta.PrincipalValue)
 
 	s.T().Log("---> DeleteObjectPolicy <---")
 
@@ -292,7 +345,6 @@ func (s *StorageTestSuite) Test_Object() {
 	err = s.Client.DelegatePutObject(s.ClientContext, bucketName, objectName2, objectSize, bytes.NewReader(buffer.Bytes()), types.PutObjectOptions{})
 	s.Require().NoError(err)
 	s.WaitSealObject(bucketName, objectName2)
-
 	var newBuffer bytes.Buffer
 	size := 1024 * 300 * 40
 	for i := 0; i < size; i++ {
@@ -495,6 +547,7 @@ func (s *StorageTestSuite) TruncateDownloadTempFileToLessPartSize() {
 	fileInfo, err := file.Stat()
 	s.Require().NoError(err)
 	currentSize := fileInfo.Size()
+	s.Require().Greater(currentSize, int64(3*1024*1024))
 	targetSize := currentSize - 3*1024*1024
 
 	err = file.Truncate(targetSize)
@@ -520,6 +573,12 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 	s.Require().NoError(err)
 
 	s.WaitSealObject(bucketName, objectName)
+
+	requiredQuota := uint64(buffer.Len()) * 6
+	buyQuotaTx, err := s.Client.BuyQuotaForBucket(s.ClientContext, bucketName, requiredQuota, types.BuyQuotaOption{})
+	s.Require().NoError(err)
+	_, err = s.Client.WaitForTx(s.ClientContext, buyQuotaTx)
+	s.Require().NoError(err)
 
 	// 3) FGetObjectResumable compare with FGetObject
 	fileName := "test-file-" + storageTestUtil.GenRandomObjectName()
@@ -587,7 +646,10 @@ func (s *StorageTestSuite) Test_Resumable_Upload_And_Download() {
 
 	// 5) Resumable download, download a file with range
 	s.T().Logf("--->  Resumable download, download a file with range <---")
-	rangeOptions := types.GetObjectOptions{Range: "bytes=1000-94131999", PartSize: partSize16MB}
+	rangeOptions := types.GetObjectOptions{
+		Range:    fmt.Sprintf("bytes=1000-%d", buffer.Len()-1000),
+		PartSize: partSize16MB,
+	}
 	ResumableDownloadWithRangeFile := "test-file-" + storageTestUtil.GenRandomObjectName()
 	defer func() {
 		_ = os.Remove(ResumableDownloadWithRangeFile)
@@ -947,13 +1009,13 @@ func (s *StorageTestSuite) Test_Get_Object_With_ForcedSpEndpoint() {
 
 	s.T().Log("---> client.New with ForceToUseSpecifiedSpEndpointForDownloadOnly option param filled <---")
 	origClient := s.Client
-	mnemonic := basesuite.ParseValidatorMnemonic(0)
-	priKey, err := keys.GetPriKeyFromMnemonic(mnemonic)
-	s.Require().NoError(err)
-	s.Client, err = client.New(basesuite.ChainID, basesuite.Endpoint, basesuite.EVMEndpoint, priKey, client.Option{
-		DefaultAccount: s.DefaultAccount,
-		ForceToUseSpecifiedSpEndpointForDownloadOnly: s.PrimarySP.Endpoint,
-	})
+	defer func() {
+		s.T().Log("---> restore client without ForceToUseSpecifiedSpEndpointForDownloadOnly option param <---")
+		s.Client = origClient
+	}()
+	opts := basesuite.LocalE2EClientOption(s.DefaultAccount, basesuite.LocalE2ETransport{})
+	opts.ForceToUseSpecifiedSpEndpointForDownloadOnly = s.PrimarySP.Endpoint
+	s.Client, err = client.New(basesuite.ChainID, basesuite.Endpoint, basesuite.EVMEndpoint, s.DefaultPrivateKey, opts)
 	s.Require().NoError(err)
 
 	s.T().Log("---> get object with ForceToUseSpecifiedSpEndpointForDownloadOnly <---")
@@ -968,8 +1030,6 @@ func (s *StorageTestSuite) Test_Get_Object_With_ForcedSpEndpoint() {
 	s.Require().Equal(objectBytes, buffer.Bytes())
 	s.Require().NoError(err)
 
-	s.T().Log("---> restore client without ForceToUseSpecifiedSpEndpointForDownloadOnly option param <---")
-	s.Client = origClient
 }
 
 func (s *StorageTestSuite) TestCreateFolder() {
