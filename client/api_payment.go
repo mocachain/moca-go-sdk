@@ -14,7 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	gnfdSdkTypes "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
-	"github.com/mocachain/moca/v2/x/evm/precompiles/payment"
+	"github.com/mocachain/moca/v2/precompiles/payment"
 	paymentTypes "github.com/mocachain/moca/v2/x/payment/types"
 	"github.com/rs/zerolog/log"
 	"github.com/mocachain/moca-go-sdk/pkg/utils"
@@ -239,7 +239,7 @@ func (c *Client) createPaymentEvmSession(ctx context.Context, privKey string) (*
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
+	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, GasLimitEstimate, nonce)
 	if err != nil {
 		return nil, err
 	}

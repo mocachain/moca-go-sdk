@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	evmTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -308,7 +309,18 @@ func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.I
 	if err != nil {
 		return "", err
 	}
+	// A native transfer is exactly params.TxGas (21000), but estimate for
+	// uniformity with the precompile paths and a buffer against any future
+	// per-transfer charge; fall back to the 21000 floor if estimation fails.
 	gasLimit := uint64(21000)
+	if est, estErr := c.evmClient.EstimateGas(ctx, ethereum.CallMsg{
+		From:     fromAddress,
+		To:       &toAddress,
+		Value:    amount.BigInt(),
+		GasPrice: gasPrice,
+	}); estErr == nil && est > 0 {
+		gasLimit = est*125/100 + 10000
+	}
 
 	tx := evmTypes.NewTransaction(nonce, toAddress, amount.BigInt(), gasLimit, gasPrice, nil)
 

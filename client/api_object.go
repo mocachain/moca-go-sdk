@@ -27,7 +27,7 @@ import (
 	gnfdsdk "github.com/mocachain/moca/v2/sdk/types"
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	"github.com/mocachain/moca/v2/types/s3util"
-	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
+	"github.com/mocachain/moca/v2/precompiles/storage"
 	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 )

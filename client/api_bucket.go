@@ -32,7 +32,7 @@ import (
 	mocadTypes "github.com/mocachain/moca/v2/types"
 	gnfdCommonTypes "github.com/mocachain/moca/v2/types/common"
 	"github.com/mocachain/moca/v2/types/s3util"
-	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
+	"github.com/mocachain/moca/v2/precompiles/storage"
 	permTypes "github.com/mocachain/moca/v2/x/permission/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 )
@@ -237,7 +237,7 @@ func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(ctx, c.evmClient, privKey, chainId, DefaultGasLimit, nonce)
+	txOpts, err := CreateTxOpts(ctx, c.evmClient, privKey, chainId, GasLimitEstimate, nonce)
 	if err != nil {
 		return nil, err
 	}
