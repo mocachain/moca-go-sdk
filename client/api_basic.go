@@ -25,7 +25,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	gosdktypes "github.com/mocachain/moca-go-sdk/types"
 	"github.com/mocachain/moca/v2/sdk/types"
-	"github.com/mocachain/moca/v2/x/evm/precompiles/storage"
+	"github.com/mocachain/moca/v2/precompiles/storage"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
 )
 
