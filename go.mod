@@ -216,13 +216,13 @@ require (
 
 replace (
 	// Use local moca-cosmos-sdk for cosmos-sdk v0.50 compatibility
-	cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v1.2.0-rc2.0.20260702040635-1ff7bfd0e495
-	cosmossdk.io/client/v2 => github.com/mocachain/moca-cosmos-sdk/client/v2 v2.2.0-rc2.0.20260702040635-1ff7bfd0e495
-	cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v0.0.0-20260702040635-1ff7bfd0e495
-	cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v1.2.0-rc2.0.20260702040635-1ff7bfd0e495
-	cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.2.0-rc2.0.20260702040635-1ff7bfd0e495
-	cosmossdk.io/x/nft => github.com/mocachain/moca-cosmos-sdk/x/nft v1.2.0-rc2.0.20260702040635-1ff7bfd0e495
-	cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.2.0-rc2.0.20260702040635-1ff7bfd0e495
+	cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v1.4.0-rc0
+	cosmossdk.io/client/v2 => github.com/mocachain/moca-cosmos-sdk/client/v2 v2.4.0-rc0
+	cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v1.4.0-rc0
+	cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v1.4.0-rc0
+	cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.4.0-rc0
+	cosmossdk.io/x/nft => github.com/mocachain/moca-cosmos-sdk/x/nft v1.4.0-rc0
+	cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.4.0-rc0
 	github.com/0xPolygon/polygon-edge => github.com/mocachain/polygon-edge v1.3.3-moca.1
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.2.0-rc1
@@ -235,7 +235,7 @@ replace (
 	github.com/wercker/journalhook => github.com/wercker/journalhook v0.0.0-20230927020745-64542ffa4117
 )
 
-replace cosmossdk.io/x/circuit => github.com/mocachain/moca-cosmos-sdk/x/circuit v1.2.0-rc2.0.20260702040635-1ff7bfd0e495
+replace cosmossdk.io/x/circuit => github.com/mocachain/moca-cosmos-sdk/x/circuit v1.4.0-rc0
 
 replace github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 
