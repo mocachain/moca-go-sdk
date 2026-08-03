@@ -140,9 +140,12 @@ sed -i "s|^AllowedClientURIs = \[\]|AllowedClientURIs = ['${SP_URI}']|" config.t
 sed -i "s|HTTPAddress = '.*'|HTTPAddress = '0.0.0.0:9033'|g" config.toml
 sed -i "s|DomainName = '.*'|DomainName = '${SP_NAME}:9033'|g" config.toml
 
-# Patch config: Monitor (metrics on 0.0.0.0 for observability)
+# Patch config: Monitor. Metrics and the probe bind to 0.0.0.0 so the host can
+# reach them; pprof must stay on loopback because the provider refuses to start
+# when it is bound to a routable interface ("pprof address ... is not a loopback
+# address, bind it to localhost or set DisablePProf").
 sed -i "s|MetricsHTTPAddress = '.*'|MetricsHTTPAddress = '0.0.0.0:9400'|g" config.toml
-sed -i "s|PProfHTTPAddress = '.*'|PProfHTTPAddress = '0.0.0.0:9401'|g" config.toml
+sed -i "s|PProfHTTPAddress = '.*'|PProfHTTPAddress = '127.0.0.1:9401'|g" config.toml
 sed -i "s|ProbeHTTPAddress = '.*'|ProbeHTTPAddress = '0.0.0.0:9402'|g" config.toml
 
 # Patch config: SpDB (User, Passwd, Address, Database)
