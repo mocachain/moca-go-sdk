@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,15 @@ import (
 	storageTestUtil "github.com/mocachain/moca/v2/testutil/storage"
 	spTypes "github.com/mocachain/moca/v2/x/sp/types"
 	storageTypes "github.com/mocachain/moca/v2/x/storage/types"
+)
+
+const (
+	// a bucket migration settles asynchronously, so a challenge issued straight after
+	// it can still resolve the pre-migration provider; these bound how long that is
+	// tolerated before the challenge is reported as a failure
+	challengeAttempts          = 6
+	challengeRetryInterval     = 5 * time.Second
+	mismatchedPrimarySPMessage = "mismatched primary sp"
 )
 
 type BucketMigrateTestSuite struct {
@@ -422,19 +432,44 @@ func (s *BucketMigrateTestSuite) CheckChallenge(objectId uint32) bool {
 		_, err = io.ReadAll(reader)
 		s.NoError(err, fmt.Sprintf("%d", i), infos.ObjectInfo.BucketName, infos.ObjectInfo.ObjectName)
 		for j := -1; j < int(dataBlocks+parityBlocks); j++ {
-			endpoint := s.challengeEndpoint(infos, j)
 			s.T().Logf("====challenge %v,%v,=====", i, j)
-			_, errPk := s.ChallengeClient.GetChallengeInfo(context.Background(), infos.ObjectInfo.Id.String(), 0, j, types.GetChallengeInfoOptions{
-				Endpoint: endpoint,
-			})
-			s.NoError(errPk, infos.ObjectInfo.BucketName, infos.ObjectInfo.ObjectName, i, j)
-			if errPk != nil {
-				s.T().Errorf(infos.ObjectInfo.BucketName, infos.ObjectInfo.ObjectName, i, j)
-			}
+			errPk := s.challengeWithRetry(infos, j)
+			s.NoErrorf(errPk, "challenge bucket %s object %s id %d redundancy index %d",
+				infos.ObjectInfo.BucketName, infos.ObjectInfo.ObjectName, i, j)
 		}
 	}
 
 	return true
+}
+
+// challengeWithRetry issues a challenge against the storage provider that currently
+// holds the piece, retrying while the answer says this SP does not serve the bucket.
+//
+// CheckChallenge runs immediately after a bucket migration, which moves the bucket to
+// a new virtual group family. Until the indexer catches up, the group the endpoint is
+// resolved from can still name the pre-migration provider, and challenging it returns
+// "mismatched primary sp". That is the migration still settling, not a missing piece,
+// so the endpoint is re-resolved from freshly read object detail on each attempt
+// rather than being computed once. Any other error is returned immediately, and the
+// last error is returned once the window is exhausted, so a real failure still fails.
+func (s *BucketMigrateTestSuite) challengeWithRetry(objectDetail *types.ObjectDetail, redundancyIndex int) error {
+	var err error
+	for attempt := 0; attempt < challengeAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(challengeRetryInterval)
+			refreshed, headErr := s.Client.HeadObjectByID(context.Background(), objectDetail.ObjectInfo.Id.String())
+			if headErr == nil {
+				objectDetail = refreshed
+			}
+		}
+		_, err = s.ChallengeClient.GetChallengeInfo(context.Background(), objectDetail.ObjectInfo.Id.String(), 0, redundancyIndex,
+			types.GetChallengeInfoOptions{Endpoint: s.challengeEndpoint(objectDetail, redundancyIndex)})
+		if err == nil || !strings.Contains(err.Error(), mismatchedPrimarySPMessage) {
+			return err
+		}
+		s.T().Logf("challenge redundancy index %d: %v, retrying (%d/%d)", redundancyIndex, err, attempt+1, challengeAttempts)
+	}
+	return err
 }
 
 func (s *BucketMigrateTestSuite) challengeEndpoint(objectDetail *types.ObjectDetail, redundancyIndex int) string {
