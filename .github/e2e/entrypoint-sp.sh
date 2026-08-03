@@ -114,6 +114,28 @@ sed -i "s|ApprovalPrivateKey = '.*'|ApprovalPrivateKey = '${APPROVAL_KEY}'|g" co
 sed -i "s|GcPrivateKey = '.*'|GcPrivateKey = '${GC_KEY}'|g" config.toml
 sed -i "s|BlsPrivateKey = '.*'|BlsPrivateKey = '${BLS_KEY}'|g" config.toml
 
+# Patch config: GRPCTLS and SignerAuth. Mutual TLS on the internal gRPC channel is
+# mandatory - the provider exits with "GRPCTLS.CACertFile is required" without it -
+# and the signer authorizes callers by the client certificate URI SAN.
+CA_CERT="$SHARED_DIR/tls/ca.crt"
+SP_CERT="$SHARED_DIR/$SP_NAME/tls.crt"
+SP_KEY="$SHARED_DIR/$SP_NAME/tls.key"
+SP_URI="spiffe://moca-e2e/sp/${SP_NAME}"
+
+for f in "$CA_CERT" "$SP_CERT" "$SP_KEY"; do
+  if [ ! -s "$f" ]; then
+    echo "Error: mutual TLS material missing at $f (init-genesis did not write it)"
+    exit 1
+  fi
+done
+
+sed -i "/^\[GRPCTLS\]/,/^\[/ {
+  s|^CACertFile = '.*'|CACertFile = '${CA_CERT}'|;
+  s|^CertFile = '.*'|CertFile = '${SP_CERT}'|;
+  s|^KeyFile = '.*'|KeyFile = '${SP_KEY}'|;
+}" config.toml
+sed -i "s|^AllowedClientURIs = \[\]|AllowedClientURIs = ['${SP_URI}']|" config.toml
+
 # Patch config: Gateway (HTTP endpoint)
 sed -i "s|HTTPAddress = '.*'|HTTPAddress = '0.0.0.0:9033'|g" config.toml
 sed -i "s|DomainName = '.*'|DomainName = '${SP_NAME}:9033'|g" config.toml
