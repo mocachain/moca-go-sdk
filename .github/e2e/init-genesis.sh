@@ -412,6 +412,49 @@ for i in $(seq 0 $((NUM_SPS - 1))); do
   echo "  $SPNAME: keys and address written to $SPOUT"
 done
 
+# --- Step 9b: Mutual TLS material for the storage providers ---
+# The storage provider requires GRPCTLS for its internal gRPC channel and refuses
+# to start without it, and the signer additionally matches the client certificate
+# URI SAN against SignerAuth.AllowedClientURIs. One CA signs every SP so that the
+# providers trust each other's certificates.
+echo "--- Step 9b: Write SP mutual TLS material ---"
+
+TLS_DIR="$OUTPUT_DIR/tls"
+mkdir -p "$TLS_DIR"
+
+openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \
+  -keyout "$TLS_DIR/ca.key" -out "$TLS_DIR/ca.crt" \
+  -subj "/CN=moca-e2e-ca" >/dev/null 2>&1
+echo "  CA written to $TLS_DIR/ca.crt"
+
+for i in $(seq 0 $((NUM_SPS - 1))); do
+  SPNAME="sp-$i"
+  SPOUT="$OUTPUT_DIR/$SPNAME"
+
+  cat > "$TLS_DIR/$SPNAME.ext" <<EXT
+subjectAltName = DNS:${SPNAME}, DNS:localhost, IP:127.0.0.1, URI:spiffe://moca-e2e/sp/${SPNAME}
+extendedKeyUsage = serverAuth, clientAuth
+EXT
+
+  openssl req -newkey rsa:2048 -nodes -sha256 \
+    -keyout "$SPOUT/tls.key" -out "$TLS_DIR/$SPNAME.csr" \
+    -subj "/CN=${SPNAME}" >/dev/null 2>&1
+  openssl x509 -req -in "$TLS_DIR/$SPNAME.csr" \
+    -CA "$TLS_DIR/ca.crt" -CAkey "$TLS_DIR/ca.key" -CAcreateserial \
+    -out "$SPOUT/tls.crt" -days 3650 -sha256 \
+    -extfile "$TLS_DIR/$SPNAME.ext" >/dev/null 2>&1
+
+  if [ ! -s "$SPOUT/tls.crt" ] || [ ! -s "$SPOUT/tls.key" ]; then
+    echo "Error: failed to generate mutual TLS material for $SPNAME"
+    exit 1
+  fi
+  # the shared volume is mounted read-only into the providers, which run as a
+  # different user than this init container
+  chmod 644 "$SPOUT/tls.key" "$SPOUT/tls.crt"
+
+  echo "  $SPNAME: certificate written to $SPOUT/tls.crt (URI SAN spiffe://moca-e2e/sp/$SPNAME)"
+done
+
 # --- Step 10: Write metadata ---
 echo "--- Step 10: Write metadata ---"
 
