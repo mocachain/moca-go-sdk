@@ -114,13 +114,38 @@ sed -i "s|ApprovalPrivateKey = '.*'|ApprovalPrivateKey = '${APPROVAL_KEY}'|g" co
 sed -i "s|GcPrivateKey = '.*'|GcPrivateKey = '${GC_KEY}'|g" config.toml
 sed -i "s|BlsPrivateKey = '.*'|BlsPrivateKey = '${BLS_KEY}'|g" config.toml
 
+# Patch config: GRPCTLS and SignerAuth. Mutual TLS on the internal gRPC channel is
+# mandatory - the provider exits with "GRPCTLS.CACertFile is required" without it -
+# and the signer authorizes callers by the client certificate URI SAN.
+CA_CERT="$SHARED_DIR/tls/ca.crt"
+SP_CERT="$SHARED_DIR/$SP_NAME/tls.crt"
+SP_KEY="$SHARED_DIR/$SP_NAME/tls.key"
+SP_URI="spiffe://moca-e2e/sp/${SP_NAME}"
+
+for f in "$CA_CERT" "$SP_CERT" "$SP_KEY"; do
+  if [ ! -s "$f" ]; then
+    echo "Error: mutual TLS material missing at $f (init-genesis did not write it)"
+    exit 1
+  fi
+done
+
+sed -i "/^\[GRPCTLS\]/,/^\[/ {
+  s|^CACertFile = '.*'|CACertFile = '${CA_CERT}'|;
+  s|^CertFile = '.*'|CertFile = '${SP_CERT}'|;
+  s|^KeyFile = '.*'|KeyFile = '${SP_KEY}'|;
+}" config.toml
+sed -i "s|^AllowedClientURIs = \[\]|AllowedClientURIs = ['${SP_URI}']|" config.toml
+
 # Patch config: Gateway (HTTP endpoint)
 sed -i "s|HTTPAddress = '.*'|HTTPAddress = '0.0.0.0:9033'|g" config.toml
 sed -i "s|DomainName = '.*'|DomainName = '${SP_NAME}:9033'|g" config.toml
 
-# Patch config: Monitor (metrics on 0.0.0.0 for observability)
+# Patch config: Monitor. Metrics and the probe bind to 0.0.0.0 so the host can
+# reach them; pprof must stay on loopback because the provider refuses to start
+# when it is bound to a routable interface ("pprof address ... is not a loopback
+# address, bind it to localhost or set DisablePProf").
 sed -i "s|MetricsHTTPAddress = '.*'|MetricsHTTPAddress = '0.0.0.0:9400'|g" config.toml
-sed -i "s|PProfHTTPAddress = '.*'|PProfHTTPAddress = '0.0.0.0:9401'|g" config.toml
+sed -i "s|PProfHTTPAddress = '.*'|PProfHTTPAddress = '127.0.0.1:9401'|g" config.toml
 sed -i "s|ProbeHTTPAddress = '.*'|ProbeHTTPAddress = '0.0.0.0:9402'|g" config.toml
 
 # Patch config: SpDB (User, Passwd, Address, Database)
