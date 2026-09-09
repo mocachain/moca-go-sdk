@@ -32,7 +32,7 @@ import (
 const (
 	simulatedGasAdjustmentNumerator   = uint64(125)
 	simulatedGasAdjustmentDenominator = uint64(100)
-	simulatedGasSafetyMargin          = uint64(10000)
+	simulatedGasSafetyMargin          = uint64(40000)
 )
 
 // IBasicClient interface defines basic functions of moca Client.
