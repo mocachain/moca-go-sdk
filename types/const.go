@@ -64,10 +64,10 @@ const (
 	DownloadBackOffDelay = time.Millisecond * 500
 
 	// Nonce retry constants for handling nonce sequence errors
-	MaxNonceRetryTime    = 3
-	NonceBackOffDelay    = time.Millisecond * 2000
-	InvalidNonceErr      = "invalid nonce"
-	InvalidSequenceErr   = "invalid sequence"
+	MaxNonceRetryTime  = 3
+	NonceBackOffDelay  = time.Millisecond * 2000
+	InvalidNonceErr    = "invalid nonce"
+	InvalidSequenceErr = "invalid sequence"
 
 	// MinPartSize - minimum part size 32MiB per object after which
 	// putObject behaves internally as multipart.
@@ -76,6 +76,5 @@ const (
 	TempFileSuffix = ".temp"            // Temp file suffix
 	FilePermMode   = os.FileMode(0o664) // Default file permission
 
-	WaitTxContextTimeOut = 1 * time.Second
 	DefaultExpireSeconds = 1000
 )

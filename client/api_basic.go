@@ -284,24 +284,11 @@ func (c *Client) WaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, 
 var errTxNotFound = fmt.Errorf("tx not found")
 
 func (c *Client) tryWaitForTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	var (
-		txResponse *ctypes.ResultTx
-		err        error
-		waitTxCtx  context.Context
-		cancelFunc context.CancelFunc
-	)
 	queryHash := strings.TrimPrefix(hash, "0x")
 
-	// when websocket conn is used, use a short timeout context to achieve the retry mechanism
-	if c.useWebsocketConn {
-		waitTxCtx, cancelFunc = context.WithTimeout(context.Background(), gosdktypes.WaitTxContextTimeOut)
-		txResponse, err = c.chainClient.Tx(waitTxCtx, queryHash)
-		cancelFunc()
-	} else {
-		txResponse, err = c.chainClient.Tx(ctx, queryHash)
-	}
+	txResponse, err := c.chainClient.Tx(ctx, queryHash)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") || (c.useWebsocketConn && (waitTxCtx.Err() == context.DeadlineExceeded)) {
+		if strings.Contains(err.Error(), "not found") {
 			return nil, errTxNotFound
 		}
 		return nil, errors.Wrapf(err, "fetching tx '%s'", hash)

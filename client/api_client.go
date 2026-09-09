@@ -77,7 +77,6 @@ type Client struct {
 	onlyTraceError       bool
 	offChainAuthOption   *OffChainAuthOption
 	offChainAuthOptionV2 *OffChainAuthOptionV2
-	useWebsocketConn     bool
 	expireSeconds        uint64
 	// forceToUseSpecifiedSpEndpointForDownloadOnly indicates a fixed SP endpoint to which to send the download request
 	// If this option is set, the client can only make download requests, and can only download from the fixed endpoint
@@ -110,8 +109,6 @@ type Option struct {
 	// This property should not be set in most cases unless you want to use go-sdk to test if the SP support off-chain-auth-v2 feature.
 	// Once this property is set, the request will be signed in "GNFD2-EDDSA" way rather than GNFD2-ECDSA.
 	OffChainAuthOptionV2 *OffChainAuthOptionV2
-	// UseWebSocketConn specifies that connection to Chain is via websocket.
-	UseWebSocketConn bool
 	// ExpireSeconds indicates the number of seconds after which the authentication of the request sent to the SP will become invalid，the default value is 1000.
 	ExpireSeconds uint64
 	// ForceToUseSpecifiedSpEndpointForDownloadOnly indicates a fixed SP endpoint to which to send the download request
@@ -178,9 +175,6 @@ func New(chainID string, endpoint, evmEndpoint, privateKey string, option Option
 		}
 		clientOptions = append(clientOptions, sdkclient.WithGrpcConnectionAndDialOption(option.GrpcAddress, dialOptions...))
 	}
-	if option.UseWebSocketConn {
-		clientOptions = append(clientOptions, sdkclient.WithWebSocketClient())
-	}
 	cc, err = sdkclient.NewMocaClient(endpoint, evmEndpoint, chainID, clientOptions...)
 	if err != nil {
 		return nil, err
@@ -209,7 +203,6 @@ func New(chainID string, endpoint, evmEndpoint, privateKey string, option Option
 		secure:           option.Secure,
 		host:             option.Host,
 		storageProviders: make(map[uint32]*types.StorageProvider),
-		useWebsocketConn: option.UseWebSocketConn,
 		expireSeconds:    option.ExpireSeconds,
 		evmClient:        evmClient,
 		evmChainID:       evmChainID,
