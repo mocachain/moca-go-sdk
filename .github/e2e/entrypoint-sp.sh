@@ -84,8 +84,10 @@ sed -i "s|RpcAddress = \[.*\]|RpcAddress = ['http://${RPC_HOST}:8545']|g" config
 
 # Patch config: gas limits & fees. Defaults dumped by moca-sp are all 0, which
 # makes the signer fall back to gas=1200 — below the chain's intrinsic minimum
-# (~23k), so every on-demand tx (GVG create, seal, delete) fails. Values below
-# match mocachain testnet-1 infra.
+# (~23k), so every on-demand tx (GVG create, seal, delete) fails. The chain's
+# precompiles meter real store gas on top of their flat cost, so a 180k cap
+# reverts SealObject with the whole limit consumed; unused gas is refunded, so
+# a generous cap costs nothing. Match any dumped value so the patch applies.
 for key in SealGasLimit RejectSealGasLimit DiscontinueBucketGasLimit \
           CreateGlobalVirtualGroupGasLimit CompleteMigrateBucketGasLimit \
           UpdateSPPriceGasLimit SwapOutGasLimit CompleteSwapOutGasLimit \
@@ -93,7 +95,7 @@ for key in SealGasLimit RejectSealGasLimit DiscontinueBucketGasLimit \
           DepositGasLimit DeleteGlobalVirtualGroupGasLimit \
           DelegateCreateObjectGasLimit DelegateUpdateObjectContentGasLimit \
           ReserveSwapInGasLimit CompleteSwapInGasLimit CancelSwapInGasLimit; do
-  sed -i "s|^${key} = 0$|${key} = 180000|" config.toml
+  sed -i -E "s|^${key} = [0-9]+$|${key} = 5000000|" config.toml
 done
 for key in SealFeeAmount RejectSealFeeAmount DiscontinueBucketFeeAmount \
           CreateGlobalVirtualGroupFeeAmount CompleteMigrateBucketFeeAmount \

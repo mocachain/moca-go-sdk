@@ -32,7 +32,7 @@ import (
 const (
 	simulatedGasAdjustmentNumerator   = uint64(125)
 	simulatedGasAdjustmentDenominator = uint64(100)
-	simulatedGasSafetyMargin          = uint64(10000)
+	simulatedGasSafetyMargin          = uint64(40000)
 )
 
 // IBasicClient interface defines basic functions of moca Client.
@@ -303,7 +303,24 @@ func (c *Client) tryWaitForTx(ctx context.Context, hash string) (*ctypes.ResultT
 }
 
 func (c *Client) tryWaitForEvmTx(ctx context.Context, hash string) (*ctypes.ResultTx, error) {
-	receipt, err := c.evmClient.TransactionReceipt(ctx, common.HexToHash(hash))
+	txHash := common.HexToHash(hash)
+
+	// eth_getTransactionByHash answers at once for a hash the node does not know
+	// (a cosmos tx, or one not yet in the mempool). Asking for the receipt of an
+	// unknown hash instead makes cosmos/evm retry the lookup with backoff until
+	// the JSON-RPC http-timeout cuts the call off with "request timed out".
+	_, pending, err := c.evmClient.TransactionByHash(ctx, txHash)
+	if err != nil {
+		if err == ethereum.NotFound {
+			return nil, errTxNotFound
+		}
+		return nil, err
+	}
+	if pending {
+		return nil, errTxNotFound
+	}
+
+	receipt, err := c.evmClient.TransactionReceipt(ctx, txHash)
 	if err != nil {
 		if err == ethereum.NotFound {
 			return nil, errTxNotFound
