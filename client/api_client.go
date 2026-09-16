@@ -3,6 +3,8 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
 	"errors"
@@ -682,8 +684,46 @@ func (c *Client) generateURL(bucketName string, objectName string, relativePath 
 	return url.Parse(urlStr)
 }
 
+// setRequestNonce attaches a random nonce header that joins the signed
+// canonical request.
+func setRequestNonce(req *http.Request) error {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return err
+	}
+	req.Header.Set(httplib.HTTPHeaderNonce, hex.EncodeToString(buf))
+	return nil
+}
+
+// setContentHash binds a replayable request body into the signed canonical
+// request; streamed bodies stay bound by the payload checksums sealed on chain.
+func setContentHash(req *http.Request) error {
+	if req.Body == nil || req.GetBody == nil || req.Header.Get(httplib.HTTPHeaderContentSHA256) != "" {
+		return nil
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return err
+	}
+	defer body.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, body); err != nil {
+		return err
+	}
+	req.Header.Set(httplib.HTTPHeaderContentSHA256, hex.EncodeToString(h.Sum(nil)))
+	return nil
+}
+
 // signRequest signs the request and set authorization before send to server
 func (c *Client) signRequest(req *http.Request) error {
+	// a fresh nonce makes every signed request unique so servers can enforce
+	// single use; older servers that do not know the header ignore it
+	if err := setRequestNonce(req); err != nil {
+		return err
+	}
+	if err := setContentHash(req); err != nil {
+		return err
+	}
 	// use offChainAuth if OffChainAuthOption is set
 	if c.offChainAuthOption != nil {
 		req.Header.Set("X-Gnfd-User-Address", c.defaultAccount.GetAddress().String())
