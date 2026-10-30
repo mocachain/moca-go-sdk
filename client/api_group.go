@@ -78,11 +78,11 @@ func (c *Client) CreateGroup(ctx context.Context, groupName string, opt types.Cr
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opt.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendCreateGroupEvmTx(ctx, createGroupMsg, opt)
+	return c.sendCreateGroupEvmTx(ctx, createGroupMsg, opt, txGasLimit(opt.TxOpts))
 }
 
-func (c *Client) sendCreateGroupEvmTx(ctx context.Context, msg *storageTypes.MsgCreateGroup, opt types.CreateGroupOptions) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendCreateGroupEvmTx(ctx context.Context, msg *storageTypes.MsgCreateGroup, opt types.CreateGroupOptions, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -96,7 +96,7 @@ func (c *Client) sendCreateGroupEvmTx(ctx context.Context, msg *storageTypes.Msg
 	if opt.Tags != nil {
 		grn := mocadTypes.NewGroupGRN(c.MustGetDefaultAccount().GetAddress(), msg.GroupName)
 		msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), grn.String(), opt.Tags)
-		if _, err = c.sendSetTagEvmTxn(ctx, msgSetTag); err != nil {
+		if _, err = c.sendSetTagEvmTxn(ctx, msgSetTag, GasLimitEstimate); err != nil {
 			return "", err
 		}
 	}
@@ -118,11 +118,11 @@ func (c *Client) sendCreateGroupEvmTx(ctx context.Context, msg *storageTypes.Msg
 // - ret3: Return error when the request failed, otherwise return nil.
 func (c *Client) DeleteGroup(ctx context.Context, groupName string, opt types.DeleteGroupOption) (string, error) {
 	deleteGroupMsg := storageTypes.NewMsgDeleteGroup(c.MustGetDefaultAccount().GetAddress(), groupName)
-	return c.sendDeleteGroupEvmTx(ctx, deleteGroupMsg, opt)
+	return c.sendDeleteGroupEvmTx(ctx, deleteGroupMsg, opt, txGasLimit(opt.TxOpts))
 }
 
-func (c *Client) sendDeleteGroupEvmTx(ctx context.Context, msg *storageTypes.MsgDeleteGroup, opt types.DeleteGroupOption) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendDeleteGroupEvmTx(ctx context.Context, msg *storageTypes.MsgDeleteGroup, opt types.DeleteGroupOption, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -202,11 +202,11 @@ func (c *Client) UpdateGroupMember(ctx context.Context, groupName string, groupO
 
 	updateGroupMsg := storageTypes.NewMsgUpdateGroupMember(c.MustGetDefaultAccount().GetAddress(), groupOwner, groupName, addMembers, removeMembers)
 
-	return c.sendUpdateGroupMemberEvmTx(ctx, updateGroupMsg, opts)
+	return c.sendUpdateGroupMemberEvmTx(ctx, updateGroupMsg, opts, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) sendUpdateGroupMemberEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateGroupMember, opt types.UpdateGroupMemberOption) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendUpdateGroupMemberEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateGroupMember, opt types.UpdateGroupMemberOption, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -331,7 +331,7 @@ func (c *Client) PutGroupPolicy(ctx context.Context, groupName string, principal
 
 	putPolicyMsg := storageTypes.NewMsgPutPolicy(sender, resource.String(),
 		permTypes.NewPrincipalWithAccount(principal), statements, opt.PolicyExpireTime)
-	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg)
+	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg, txGasLimit(opt.TxOpts))
 }
 
 // GetBucketPolicyOfGroup - Get the bucket policy info of the group.
@@ -414,7 +414,7 @@ func (c *Client) DeleteGroupPolicy(ctx context.Context, groupName string, princi
 	principal := permTypes.NewPrincipalWithAccount(addr)
 
 	delPolicyMsg := storageTypes.NewMsgDeletePolicy(c.MustGetDefaultAccount().GetAddress(), resource, principal)
-	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg)
+	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg, txGasLimit(opt.TxOpts))
 }
 
 // GetGroupPolicy - Get the group policy info of the user.
@@ -591,15 +591,15 @@ func (c *Client) RenewGroupMember(ctx context.Context, groupOwnerAddr, groupName
 	}
 	msg := storageTypes.NewMsgRenewGroupMember(c.MustGetDefaultAccount().GetAddress(), groupOwner, groupName, renewMembers)
 	// return c.sendTxn(ctx, msg, opts.TxOpts)
-	return c.sendRenewGroupMemberEvmTx(ctx, msg)
+	return c.sendRenewGroupMemberEvmTx(ctx, msg, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) sendRenewGroupMemberEvmTx(ctx context.Context, msg *storageTypes.MsgRenewGroupMember) (string, error) {
+func (c *Client) sendRenewGroupMemberEvmTx(ctx context.Context, msg *storageTypes.MsgRenewGroupMember, gasLimit uint64) (string, error) {
 	if err := msg.ValidateBasic(); err != nil {
 		return "", err
 	}
 
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}

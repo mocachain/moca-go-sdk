@@ -159,11 +159,11 @@ func (c *Client) CreateObject(ctx context.Context, bucketName, objectName string
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendCreateObjectEvmTxs(ctx, createObjectMsg, opts)
+	return c.sendCreateObjectEvmTxs(ctx, createObjectMsg, opts, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) sendCreateObjectEvmTxs(ctx context.Context, msg *storageTypes.MsgCreateObject, opts types.CreateObjectOptions) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendCreateObjectEvmTxs(ctx context.Context, msg *storageTypes.MsgCreateObject, opts types.CreateObjectOptions, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +188,7 @@ func (c *Client) sendCreateObjectEvmTxs(ctx context.Context, msg *storageTypes.M
 		// Set tag
 		grn := mocadTypes.NewObjectGRN(msg.BucketName, msg.ObjectName)
 		msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), grn.String(), opts.Tags)
-		if _, err = c.sendSetTagEvmTxn(ctx, msgSetTag); err != nil {
+		if _, err = c.sendSetTagEvmTxn(ctx, msgSetTag, GasLimitEstimate); err != nil {
 			return "", err
 		}
 	}
@@ -290,11 +290,11 @@ func (c *Client) DeleteObject(ctx context.Context, bucketName, objectName string
 	}
 
 	delObjectMsg := storageTypes.NewMsgDeleteObject(c.MustGetDefaultAccount().GetAddress(), bucketName, objectName)
-	return c.sendDeleteObjectEvmTx(ctx, delObjectMsg, opt)
+	return c.sendDeleteObjectEvmTx(ctx, delObjectMsg, opt, txGasLimit(opt.TxOpts))
 }
 
-func (c *Client) sendDeleteObjectEvmTx(ctx context.Context, msg *storageTypes.MsgDeleteObject, opt types.DeleteObjectOption) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendDeleteObjectEvmTx(ctx context.Context, msg *storageTypes.MsgDeleteObject, opt types.DeleteObjectOption, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -320,15 +320,15 @@ func (c *Client) CancelCreateObject(ctx context.Context, bucketName, objectName 
 
 	cancelCreateMsg := storageTypes.NewMsgCancelCreateObject(c.MustGetDefaultAccount().GetAddress(), bucketName, objectName)
 	// return c.sendTxn(ctx, cancelCreateMsg, opt.TxOpts)
-	return c.sendCancelCreateObjectEvmTx(ctx, cancelCreateMsg)
+	return c.sendCancelCreateObjectEvmTx(ctx, cancelCreateMsg, txGasLimit(opt.TxOpts))
 }
 
-func (c *Client) sendCancelCreateObjectEvmTx(ctx context.Context, msg *storageTypes.MsgCancelCreateObject) (string, error) {
+func (c *Client) sendCancelCreateObjectEvmTx(ctx context.Context, msg *storageTypes.MsgCancelCreateObject, gasLimit uint64) (string, error) {
 	if err := msg.ValidateBasic(); err != nil {
 		return "", err
 	}
 
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -1084,7 +1084,7 @@ func (c *Client) PutObjectPolicy(ctx context.Context, bucketName, objectName str
 	}
 	putPolicyMsg := storageTypes.NewMsgPutPolicy(c.MustGetDefaultAccount().GetAddress(), resource.String(),
 		principal, statements, expireTime)
-	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg)
+	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg, txGasLimit(opt.TxOpts))
 }
 
 // DeleteObjectPolicy delete the object policy of the principal
@@ -1096,7 +1096,7 @@ func (c *Client) DeleteObjectPolicy(ctx context.Context, bucketName, objectName 
 
 	resource := mocadTypes.NewObjectGRN(bucketName, objectName).String()
 	delPolicyMsg := storageTypes.NewMsgDeletePolicy(c.MustGetDefaultAccount().GetAddress(), resource, principal)
-	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg)
+	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg, txGasLimit(opt.TxOpts))
 }
 
 // IsObjectPermissionAllowed check if the permission of the object is allowed to the user
@@ -1470,11 +1470,11 @@ func (c *Client) UpdateObjectVisibility(ctx context.Context, bucketName, objectN
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opt.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendUpdateObjectInfoEvmTx(ctx, updateObjectMsg, opt)
+	return c.sendUpdateObjectInfoEvmTx(ctx, updateObjectMsg, opt, txGasLimit(opt.TxOpts))
 }
 
-func (c *Client) sendUpdateObjectInfoEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateObjectInfo, opt types.UpdateObjectOption) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendUpdateObjectInfoEvmTx(ctx context.Context, msg *storageTypes.MsgUpdateObjectInfo, opt types.UpdateObjectOption, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}

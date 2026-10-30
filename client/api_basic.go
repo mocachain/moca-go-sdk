@@ -566,15 +566,15 @@ func (c *Client) QueryVote(ctx context.Context, eventType int, eventHash []byte)
 // - ret2: Return error if SetTag failed, otherwise return nil.
 func (c *Client) SetTag(ctx context.Context, resourceGRN string, tags storageTypes.ResourceTags, opts gosdktypes.SetTagsOptions) (string, error) {
 	msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), resourceGRN, &tags)
-	return c.sendSetTagEvmTxn(ctx, msgSetTag)
+	return c.sendSetTagEvmTxn(ctx, msgSetTag, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) sendSetTagEvmTxn(ctx context.Context, msg *storageTypes.MsgSetTag) (string, error) {
+func (c *Client) sendSetTagEvmTxn(ctx context.Context, msg *storageTypes.MsgSetTag, gasLimit uint64) (string, error) {
 	backoffDelay := gosdktypes.NonceBackOffDelay
 	var lastErr error
 
 	for retry := 0; retry < gosdktypes.MaxNonceRetryTime; retry++ {
-		session, err := c.createStorageEvmSession(ctx, c.privateKey)
+		session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 		if err != nil {
 			return "", err
 		}

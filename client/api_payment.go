@@ -75,11 +75,11 @@ func (c *Client) Deposit(ctx context.Context, toAddress string, amount math.Int,
 		Amount:  amount,
 	}
 	// return c.sendTxn(ctx, msgDeposit, &txOption)
-	return c.sendDepositEvmTxn(ctx, msgDeposit)
+	return c.sendDepositEvmTxn(ctx, msgDeposit, txGasLimit(&txOption))
 }
 
-func (c *Client) sendDepositEvmTxn(ctx context.Context, msg *paymentTypes.MsgDeposit) (string, error) {
-	session, err := c.createPaymentEvmSession(ctx, c.privateKey)
+func (c *Client) sendDepositEvmTxn(ctx context.Context, msg *paymentTypes.MsgDeposit, gasLimit uint64) (string, error) {
+	session, err := c.createPaymentEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -119,11 +119,11 @@ func (c *Client) Withdraw(ctx context.Context, fromAddress string, amount math.I
 		Amount:  amount,
 	}
 	// return c.sendTxn(ctx, msgWithdraw, &txOption)
-	return c.sendWithdrawEvmTxn(ctx, msgWithdraw)
+	return c.sendWithdrawEvmTxn(ctx, msgWithdraw, txGasLimit(&txOption))
 }
 
-func (c *Client) sendWithdrawEvmTxn(ctx context.Context, msg *paymentTypes.MsgWithdraw) (string, error) {
-	session, err := c.createPaymentEvmSession(ctx, c.privateKey)
+func (c *Client) sendWithdrawEvmTxn(ctx context.Context, msg *paymentTypes.MsgWithdraw, gasLimit uint64) (string, error) {
+	session, err := c.createPaymentEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -229,7 +229,7 @@ func (c *Client) ListUserPaymentAccounts(ctx context.Context, opts types.ListUse
 	return paymentAccounts, nil
 }
 
-func (c *Client) createPaymentEvmSession(ctx context.Context, privKey string) (*payment.IPaymentSession, error) {
+func (c *Client) createPaymentEvmSession(ctx context.Context, privKey string, gasLimit uint64) (*payment.IPaymentSession, error) {
 	nonce, err := c.chainClient.GetNonce(context.Background())
 	if err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func (c *Client) createPaymentEvmSession(ctx context.Context, privKey string) (*
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, GasLimitEstimate, nonce)
+	txOpts, err := CreateTxOpts(context.Background(), c.evmClient, privKey, chainId, gasLimit, nonce)
 	if err != nil {
 		return nil, err
 	}

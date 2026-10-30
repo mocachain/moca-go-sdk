@@ -822,8 +822,8 @@ func (c *Client) sendTxn(ctx context.Context, msg sdk.Msg, opt *gnfdSdkTypes.TxO
 	return resp.TxResponse.TxHash, err
 }
 
-func (c *Client) sendDelPolicyEvmTxn(ctx context.Context, msg *storageTypes.MsgDeletePolicy) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendDelPolicyEvmTxn(ctx context.Context, msg *storageTypes.MsgDeletePolicy, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}

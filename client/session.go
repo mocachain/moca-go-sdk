@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -12,17 +13,25 @@ import (
 	"github.com/mocachain/moca/v2/precompiles/bank"
 	"github.com/mocachain/moca/v2/precompiles/payment"
 	"github.com/mocachain/moca/v2/precompiles/storage"
+	"github.com/mocachain/moca/v2/sdk/types"
 )
 
 const (
-	// DefaultGasLimit is the fallback ceiling used only when gas estimation
-	// fails (e.g. a tx that would revert); the tx is still sent and reverts
-	// on-chain as before. Sized to cover the heaviest precompile store gas.
+	// DefaultGasLimit is no longer used. EVM transactions used to fall back to it
+	// when gas estimation failed and were sent anyway, which a call that would
+	// revert paid for; the fee market charges at least half the gas limit, so every
+	// such transaction was charged 2,500,000 gas. A call the node cannot estimate is
+	// now not sent.
+	//
+	// Deprecated: EVM transactions carry the estimated gas, or the caller's explicit
+	// limit (see GasLimitEstimate).
 	DefaultGasLimit = 5000000
 	// GasLimitEstimate is the sentinel that leaves TransactOpts.GasLimit==0 so
 	// geth's bind estimates gas per call (via estimatingBackend) instead of
 	// pinning a fixed value — precompile gas is dynamic (moca #332 store gas +
 	// #356 flat+per-byte RequiredGas), so a fixed pin over- or under-shoots.
+	// A caller sets an explicit limit the same way as for a Cosmos transaction:
+	// TxOption.NoSimulate with TxOption.GasLimit (see txGasLimit).
 	GasLimitEstimate = 0
 )
 
@@ -31,8 +40,9 @@ const (
 // dummy PendingCodeAt avoids bind's ErrNoCode guard; (2) cosmos/evm's
 // eth_estimateGas returns the exact binary-searched minimum with no headroom, so
 // EstimateGas adds the same 1.25x + 10000 safety buffer the cosmos tx path uses
-// (state can shift between the estimate block and execution). On estimate failure
-// it falls back to DefaultGasLimit so the tx still sends (and reverts on-chain).
+// (state can shift between the estimate block and execution). When the node cannot
+// estimate the call (it would revert, or the node failed), EstimateGas returns that
+// error and bind neither signs nor sends the transaction.
 type estimatingBackend struct {
 	*ethclient.Client
 }
@@ -44,9 +54,24 @@ func (estimatingBackend) PendingCodeAt(_ context.Context, _ common.Address) ([]b
 func (b estimatingBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
 	est, err := b.Client.EstimateGas(ctx, call)
 	if err != nil {
-		return DefaultGasLimit, nil
+		return 0, fmt.Errorf("failed to estimate gas: %w", err)
 	}
-	return est*125/100 + 10000, nil
+	return withGasBuffer(est), nil
+}
+
+// withGasBuffer adds the 1.25x + 10000 buffer to a gas estimate.
+func withGasBuffer(estimate uint64) uint64 {
+	return estimate*125/100 + 10000
+}
+
+// txGasLimit returns the gas limit a caller set explicitly for an EVM transaction:
+// TxOption.GasLimit together with TxOption.NoSimulate, as for a Cosmos transaction.
+// Without both it returns GasLimitEstimate.
+func txGasLimit(txOpt *types.TxOption) uint64 {
+	if txOpt == nil || !txOpt.NoSimulate {
+		return GasLimitEstimate
+	}
+	return txOpt.GasLimit
 }
 
 func CreateTxOpts(ctx context.Context, client *ethclient.Client, hexPrivateKey string, chain *big.Int, gasLimit uint64, nonce uint64) (*bind.TransactOpts, error) {

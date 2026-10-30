@@ -125,11 +125,11 @@ func (c *Client) GetAccount(ctx context.Context, address string) (authTypes.Acco
 //
 // - ret2: Return error when created failed, otherwise return nil.
 func (c *Client) CreatePaymentAccount(ctx context.Context, address string, txOption gnfdSdkTypes.TxOption) (string, error) {
-	return c.sendCreatePaymentAccountEvmTxn(ctx)
+	return c.sendCreatePaymentAccountEvmTxn(ctx, txGasLimit(&txOption))
 }
 
-func (c *Client) sendCreatePaymentAccountEvmTxn(ctx context.Context) (string, error) {
-	session, err := c.createPaymentEvmSession(ctx, c.privateKey)
+func (c *Client) sendCreatePaymentAccountEvmTxn(ctx context.Context, gasLimit uint64) (string, error) {
+	session, err := c.createPaymentEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -290,10 +290,10 @@ func (c *Client) GetPaymentAccountsByOwner(ctx context.Context, owner string) ([
 //
 // - ret2: Return error if transferred failed, otherwise return nil.
 func (c *Client) Transfer(ctx context.Context, toAddress string, amount math.Int, txOption gnfdSdkTypes.TxOption) (string, error) {
-	return c.sendTransferEvmTx(ctx, toAddress, amount)
+	return c.sendTransferEvmTx(ctx, toAddress, amount, txGasLimit(&txOption))
 }
 
-func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.Int) (string, error) {
+func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.Int, gasLimit uint64) (string, error) {
 	privateKey, err := crypto.HexToECDSA(c.privateKey)
 	if err != nil {
 		log.Fatalf("Failed to load private key: %v", err)
@@ -309,17 +309,20 @@ func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.I
 	if err != nil {
 		return "", err
 	}
-	// A native transfer is exactly params.TxGas (21000), but estimate for
-	// uniformity with the precompile paths and a buffer against any future
-	// per-transfer charge; fall back to the 21000 floor if estimation fails.
-	gasLimit := uint64(21000)
-	if est, estErr := c.evmClient.EstimateGas(ctx, ethereum.CallMsg{
-		From:     fromAddress,
-		To:       &toAddress,
-		Value:    amount.BigInt(),
-		GasPrice: gasPrice,
-	}); estErr == nil && est > 0 {
-		gasLimit = est*125/100 + 10000
+	// Estimate like the precompile paths unless the caller set the gas limit. A
+	// transfer the node cannot estimate (for example, the balance does not cover it)
+	// is not sent.
+	if gasLimit == GasLimitEstimate {
+		est, err := c.evmClient.EstimateGas(ctx, ethereum.CallMsg{
+			From:     fromAddress,
+			To:       &toAddress,
+			Value:    amount.BigInt(),
+			GasPrice: gasPrice,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to estimate gas: %w", err)
+		}
+		gasLimit = withGasBuffer(est)
 	}
 
 	tx := evmTypes.NewTransaction(nonce, toAddress, amount.BigInt(), gasLimit, gasPrice, nil)

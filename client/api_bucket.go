@@ -219,10 +219,10 @@ func (c *Client) CreateBucket(ctx context.Context, bucketName string, primaryAdd
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendCreateBucketEvmTxn(ctx, createBucketMsg, opts)
+	return c.sendCreateBucketEvmTxn(ctx, createBucketMsg, opts, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*storage.IStorageSession, error) {
+func (c *Client) createStorageEvmSession(ctx context.Context, privKey string, gasLimit uint64) (*storage.IStorageSession, error) {
 	privateKey, err := crypto.HexToECDSA(privKey)
 	if err != nil {
 		return nil, err
@@ -237,7 +237,7 @@ func (c *Client) createStorageEvmSession(ctx context.Context, privKey string) (*
 		return nil, err
 	}
 
-	txOpts, err := CreateTxOpts(ctx, c.evmClient, privKey, chainId, GasLimitEstimate, nonce)
+	txOpts, err := CreateTxOpts(ctx, c.evmClient, privKey, chainId, gasLimit, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -257,8 +257,8 @@ func toStorageApproval(a *gnfdCommonTypes.Approval) storage.Approval {
 	}
 }
 
-func (c *Client) sendCreateBucketEvmTxn(ctx context.Context, createBucketMsg *storageTypes.MsgCreateBucket, opts types.CreateBucketOptions) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendCreateBucketEvmTxn(ctx context.Context, createBucketMsg *storageTypes.MsgCreateBucket, opts types.CreateBucketOptions, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -276,7 +276,7 @@ func (c *Client) sendCreateBucketEvmTxn(ctx context.Context, createBucketMsg *st
 	if opts.Tags != nil {
 		grn := mocadTypes.NewBucketGRN(createBucketMsg.BucketName)
 		msgSetTag := storageTypes.NewMsgSetTag(c.MustGetDefaultAccount().GetAddress(), grn.String(), opts.Tags)
-		if _, err = c.sendSetTagEvmTxn(ctx, msgSetTag); err != nil {
+		if _, err = c.sendSetTagEvmTxn(ctx, msgSetTag, GasLimitEstimate); err != nil {
 			return "", err
 		}
 	}
@@ -299,11 +299,11 @@ func (c *Client) DeleteBucket(ctx context.Context, bucketName string, opt types.
 		return "", err
 	}
 	delBucketMsg := storageTypes.NewMsgDeleteBucket(c.MustGetDefaultAccount().GetAddress(), bucketName)
-	return c.sendDeleteBucketEvmTx(ctx, delBucketMsg)
+	return c.sendDeleteBucketEvmTx(ctx, delBucketMsg, txGasLimit(opt.TxOpts))
 }
 
-func (c *Client) sendDeleteBucketEvmTx(ctx context.Context, delBucketMsg *storageTypes.MsgDeleteBucket) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendDeleteBucketEvmTx(ctx context.Context, delBucketMsg *storageTypes.MsgDeleteBucket, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -344,7 +344,7 @@ func (c *Client) UpdateBucketVisibility(ctx context.Context, bucketName string,
 
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &bucketInfo.ChargedReadQuota, paymentAddr, visibility)
 	// return c.sendTxn(ctx, updateBucketMsg, opt.TxOpts)
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, txGasLimit(opt.TxOpts))
 }
 
 // UpdateBucketPaymentAddr - Update the payment address of bucket. It will send the MsgUpdateBucketInfo msg to moca to update the meta.
@@ -370,7 +370,7 @@ func (c *Client) UpdateBucketPaymentAddr(ctx context.Context, bucketName string,
 
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &bucketInfo.ChargedReadQuota, paymentAddr, bucketInfo.Visibility)
 	// return c.sendTxn(ctx, updateBucketMsg, opt.TxOpts)
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, txGasLimit(opt.TxOpts))
 }
 
 // SetBucketFlowRateLimit - Set the flow rate limit of the bucket. It will send the MsgSetBucketFlowRateLimit msg to moca to update the meta.
@@ -484,11 +484,11 @@ func (c *Client) UpdateBucketInfo(ctx context.Context, bucketName string, opts t
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendUpdateBucketInfoEvmTxn(ctx context.Context, msg *storageTypes.MsgUpdateBucketInfo, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -583,7 +583,7 @@ func (c *Client) PutBucketPolicy(ctx context.Context, bucketName string, princip
 
 	putPolicyMsg := storageTypes.NewMsgPutPolicy(c.MustGetDefaultAccount().GetAddress(), resource.String(),
 		principal, statements, opt.PolicyExpireTime)
-	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg)
+	return c.sendPutPolicyEvmTxn(ctx, putPolicyMsg, txGasLimit(opt.TxOpts))
 }
 
 func toStoragePrincipal(principal *permTypes.Principal) storage.Principal {
@@ -624,8 +624,8 @@ func convertActions(actions []permTypes.ActionType) []int32 {
 	return result
 }
 
-func (c *Client) sendPutPolicyEvmTxn(ctx context.Context, msg *storageTypes.MsgPutPolicy) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendPutPolicyEvmTxn(ctx context.Context, msg *storageTypes.MsgPutPolicy, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
@@ -660,7 +660,7 @@ func (c *Client) DeleteBucketPolicy(ctx context.Context, bucketName string, prin
 		return "", err
 	}
 	delPolicyMsg := storageTypes.NewMsgDeletePolicy(c.MustGetDefaultAccount().GetAddress(), resource, principal)
-	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg)
+	return c.sendDelPolicyEvmTxn(ctx, delPolicyMsg, txGasLimit(opt.TxOpts))
 }
 
 // IsBucketPermissionAllowed - Check if the permission of bucket is allowed to the user.
@@ -1004,7 +1004,7 @@ func (c *Client) BuyQuotaForBucket(ctx context.Context, bucketName string, targe
 		return "", err
 	}
 	updateBucketMsg := storageTypes.NewMsgUpdateBucketInfo(c.MustGetDefaultAccount().GetAddress(), bucketName, &targetQuota, paymentAddr, bucketInfo.Visibility)
-	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg)
+	return c.sendUpdateBucketInfoEvmTxn(ctx, updateBucketMsg, txGasLimit(opt.TxOpts))
 }
 
 // ListBucketsByBucketID - List buckets by bucket ids.
@@ -1176,11 +1176,11 @@ func (c *Client) MigrateBucket(ctx context.Context, bucketName string, dstPrimar
 		broadcastMode := tx.BroadcastMode_BROADCAST_MODE_SYNC
 		opts.TxOpts = &gnfdsdk.TxOption{Mode: &broadcastMode}
 	}
-	return c.sendMigrateBucketEvmTX(ctx, signedMsg)
+	return c.sendMigrateBucketEvmTX(ctx, signedMsg, txGasLimit(opts.TxOpts))
 }
 
-func (c *Client) sendMigrateBucketEvmTX(ctx context.Context, msg *storageTypes.MsgMigrateBucket) (string, error) {
-	session, err := c.createStorageEvmSession(ctx, c.privateKey)
+func (c *Client) sendMigrateBucketEvmTX(ctx context.Context, msg *storageTypes.MsgMigrateBucket, gasLimit uint64) (string, error) {
+	session, err := c.createStorageEvmSession(ctx, c.privateKey, gasLimit)
 	if err != nil {
 		return "", err
 	}
