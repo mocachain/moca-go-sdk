@@ -12,12 +12,15 @@ import (
 	"github.com/mocachain/moca/v2/precompiles/bank"
 	"github.com/mocachain/moca/v2/precompiles/payment"
 	"github.com/mocachain/moca/v2/precompiles/storage"
+	"github.com/rs/zerolog/log"
 )
 
 const (
 	// DefaultGasLimit is the fallback ceiling used only when gas estimation
 	// fails (e.g. a tx that would revert); the tx is still sent and reverts
 	// on-chain as before. Sized to cover the heaviest precompile store gas.
+	// The fee market charges at least half the gas limit, so a transaction sent
+	// with it pays for at least 2,500,000 gas; the fallback is logged as a warning.
 	DefaultGasLimit = 5000000
 	// GasLimitEstimate is the sentinel that leaves TransactOpts.GasLimit==0 so
 	// geth's bind estimates gas per call (via estimatingBackend) instead of
@@ -33,6 +36,7 @@ const (
 // EstimateGas adds the same 1.25x + 10000 safety buffer the cosmos tx path uses
 // (state can shift between the estimate block and execution). On estimate failure
 // it falls back to DefaultGasLimit so the tx still sends (and reverts on-chain).
+// See estimateGasLimit for the logs.
 type estimatingBackend struct {
 	*ethclient.Client
 }
@@ -42,11 +46,22 @@ func (estimatingBackend) PendingCodeAt(_ context.Context, _ common.Address) ([]b
 }
 
 func (b estimatingBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	est, err := b.Client.EstimateGas(ctx, call)
-	if err != nil {
-		return DefaultGasLimit, nil
+	return estimateGasLimit(ctx, b.Client, call, DefaultGasLimit), nil
+}
+
+// estimateGasLimit returns the node's gas estimate for call plus the 1.25x + 10000
+// buffer, or fallback when the node cannot estimate it. An estimate is logged at
+// debug level and a fallback as a warning with the node's error, so a caller can
+// tell which gas limit a transaction was sent with.
+func estimateGasLimit(ctx context.Context, client *ethclient.Client, call ethereum.CallMsg, fallback uint64) uint64 {
+	est, err := client.EstimateGas(ctx, call)
+	if err != nil || est == 0 {
+		log.Warn().Err(err).Uint64("gas_limit", fallback).Msg("gas estimation failed, sending with the fallback gas limit")
+		return fallback
 	}
-	return est*125/100 + 10000, nil
+	gasLimit := est*125/100 + 10000
+	log.Debug().Uint64("estimate", est).Uint64("gas_limit", gasLimit).Msg("gas estimated")
+	return gasLimit
 }
 
 func CreateTxOpts(ctx context.Context, client *ethclient.Client, hexPrivateKey string, chain *big.Int, gasLimit uint64, nonce uint64) (*bind.TransactOpts, error) {

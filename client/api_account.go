@@ -312,15 +312,12 @@ func (c *Client) sendTransferEvmTx(ctx context.Context, to string, amount math.I
 	// A native transfer is exactly params.TxGas (21000), but estimate for
 	// uniformity with the precompile paths and a buffer against any future
 	// per-transfer charge; fall back to the 21000 floor if estimation fails.
-	gasLimit := uint64(21000)
-	if est, estErr := c.evmClient.EstimateGas(ctx, ethereum.CallMsg{
+	gasLimit := estimateGasLimit(ctx, c.evmClient, ethereum.CallMsg{
 		From:     fromAddress,
 		To:       &toAddress,
 		Value:    amount.BigInt(),
 		GasPrice: gasPrice,
-	}); estErr == nil && est > 0 {
-		gasLimit = est*125/100 + 10000
-	}
+	}, 21000)
 
 	tx := evmTypes.NewTransaction(nonce, toAddress, amount.BigInt(), gasLimit, gasPrice, nil)
 
