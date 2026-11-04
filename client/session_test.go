@@ -154,6 +154,15 @@ func TestStorageSession_FallsBackWhenEstimateFails(t *testing.T) {
 	}}, logs())
 }
 
+func TestStorageSession_SendsBufferedZeroEstimate(t *testing.T) {
+	logs := captureLogs(t)
+	node := &fakeEvmNode{estimate: 0}
+	deleteBucket(t, newFakeEvmNode(t, node))
+
+	require.Equal(t, uint64(10_000), node.sentGas(t))
+	require.Equal(t, []logLine{{Level: "debug", Message: "gas estimated", GasLimit: 10_000}}, logs())
+}
+
 func TestTransfer_GasLimit(t *testing.T) {
 	transfer := func(node *fakeEvmNode) {
 		c := &Client{privateKey: testEvmPrivateKey, evmClient: newFakeEvmNode(t, node), evmChainID: big.NewInt(5151)}
@@ -177,6 +186,18 @@ func TestTransfer_GasLimit(t *testing.T) {
 			Level:    "warn",
 			Message:  "gas estimation failed, sending with the fallback gas limit",
 			Error:    "insufficient funds for transfer",
+			GasLimit: 21_000,
+		}}, logs())
+	})
+	t.Run("zero estimate", func(t *testing.T) {
+		logs := captureLogs(t)
+		node := &fakeEvmNode{estimate: 0}
+		transfer(node)
+		require.Equal(t, uint64(21_000), node.sentGas(t))
+		require.Equal(t, []logLine{{
+			Level:    "warn",
+			Message:  "gas estimation failed, sending with the fallback gas limit",
+			Error:    "zero gas estimate",
 			GasLimit: 21_000,
 		}}, logs())
 	})

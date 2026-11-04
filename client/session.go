@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -46,16 +47,24 @@ func (estimatingBackend) PendingCodeAt(_ context.Context, _ common.Address) ([]b
 }
 
 func (b estimatingBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	return estimateGasLimit(ctx, b.Client, call, DefaultGasLimit), nil
+	return estimateGasLimit(ctx, b.Client, call, DefaultGasLimit, false), nil
 }
 
+// errZeroGasEstimate is the fallback reason for a zero estimate when the caller
+// rejects it.
+var errZeroGasEstimate = errors.New("zero gas estimate")
+
 // estimateGasLimit returns the node's gas estimate for call plus the 1.25x + 10000
-// buffer, or fallback when the node cannot estimate it. An estimate is logged at
-// debug level and a fallback as a warning with the node's error, so a caller can
-// tell which gas limit a transaction was sent with.
-func estimateGasLimit(ctx context.Context, client *ethclient.Client, call ethereum.CallMsg, fallback uint64) uint64 {
+// buffer, or fallback when the node cannot estimate it or, with rejectZero, when
+// it estimates zero. An estimate is logged at debug level and a fallback as a
+// warning with its reason, so a caller can tell which gas limit a transaction was
+// sent with.
+func estimateGasLimit(ctx context.Context, client *ethclient.Client, call ethereum.CallMsg, fallback uint64, rejectZero bool) uint64 {
 	est, err := client.EstimateGas(ctx, call)
-	if err != nil || est == 0 {
+	if err == nil && est == 0 && rejectZero {
+		err = errZeroGasEstimate
+	}
+	if err != nil {
 		log.Warn().Err(err).Uint64("gas_limit", fallback).Msg("gas estimation failed, sending with the fallback gas limit")
 		return fallback
 	}
