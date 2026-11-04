@@ -230,7 +230,7 @@ replace (
 	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.4.0-rc0
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.3.0-rc0
+	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.3.0-rc0.0.20261104095442-623b90996868
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/wercker/journalhook => github.com/wercker/journalhook v0.0.0-20230927020745-64542ffa4117
 )
