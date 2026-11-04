@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/xml"
 	"errors"
@@ -78,6 +79,7 @@ type Client struct {
 	offChainAuthOption   *OffChainAuthOption
 	offChainAuthOptionV2 *OffChainAuthOptionV2
 	expireSeconds        uint64
+	sendAuthNonce        bool
 	// forceToUseSpecifiedSpEndpointForDownloadOnly indicates a fixed SP endpoint to which to send the download request
 	// If this option is set, the client can only make download requests, and can only download from the fixed endpoint
 	forceToUseSpecifiedSpEndpointForDownloadOnly *url.URL
@@ -111,6 +113,9 @@ type Option struct {
 	OffChainAuthOptionV2 *OffChainAuthOptionV2
 	// ExpireSeconds indicates the number of seconds after which the authentication of the request sent to the SP will become invalid，the default value is 1000.
 	ExpireSeconds uint64
+	// SendAuthNonce adds a random X-Gnfd-Nonce header to every signed request sent to the SP. An SP without nonce
+	// support fails to verify such a request, so set it only when every SP the client talks to supports the header.
+	SendAuthNonce bool
 	// ForceToUseSpecifiedSpEndpointForDownloadOnly indicates a fixed SP endpoint to which to send the download request
 	// If this option is set, the client can only make download requests, and can only download from the fixed endpoint
 	ForceToUseSpecifiedSpEndpointForDownloadOnly string
@@ -204,6 +209,7 @@ func New(chainID string, endpoint, evmEndpoint, privateKey string, option Option
 		host:             option.Host,
 		storageProviders: make(map[uint32]*types.StorageProvider),
 		expireSeconds:    option.ExpireSeconds,
+		sendAuthNonce:    option.SendAuthNonce,
 		evmClient:        evmClient,
 		evmChainID:       evmChainID,
 	}
@@ -682,8 +688,24 @@ func (c *Client) generateURL(bucketName string, objectName string, relativePath 
 	return url.Parse(urlStr)
 }
 
+// setRequestNonce attaches a random nonce header that joins the signed
+// canonical request.
+func setRequestNonce(req *http.Request) error {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return err
+	}
+	req.Header.Set(httplib.HTTPHeaderNonce, hex.EncodeToString(buf))
+	return nil
+}
+
 // signRequest signs the request and set authorization before send to server
 func (c *Client) signRequest(req *http.Request) error {
+	if c.sendAuthNonce {
+		if err := setRequestNonce(req); err != nil {
+			return err
+		}
+	}
 	// use offChainAuth if OffChainAuthOption is set
 	if c.offChainAuthOption != nil {
 		req.Header.Set("X-Gnfd-User-Address", c.defaultAccount.GetAddress().String())
