@@ -47,8 +47,11 @@ TMPFILE=$(mktemp)
 # Replace ALL occurrences of "stake" denom with our denom
 sed -i "s/\"stake\"/\"${DENOM}\"/g" "$GENESIS"
 
-# Set denom_metadata for bank module (required for chain init — name field must not be blank)
-NATIVE_COIN_DESC="{\"description\":\"The native staking token of the Moca.\",\"denom_units\":[{\"denom\":\"${DENOM}\",\"exponent\":0,\"aliases\":[\"wei\"]}],\"base\":\"${DENOM}\",\"display\":\"${DENOM}\",\"name\":\"Moca\",\"symbol\":\"MOCA\"}"
+# Set denom_metadata for bank module. Mirrors moca's mocaDenomMetadata (app/app.go):
+# cosmos/evm resolves the EVM coin decimals from the unit that matches "display",
+# so it must be the 18-decimals unit — a display unit at exponent 0 panics every
+# validator at InitGenesis ("received unsupported decimals: 0").
+NATIVE_COIN_DESC="{\"description\":\"The native staking and EVM token of the Moca chain\",\"denom_units\":[{\"denom\":\"${DENOM}\",\"exponent\":0},{\"denom\":\"moca\",\"exponent\":18}],\"base\":\"${DENOM}\",\"display\":\"moca\",\"name\":\"moca\",\"symbol\":\"MOCA\"}"
 jq --argjson meta "[${NATIVE_COIN_DESC}]" '.app_state.bank.denom_metadata = $meta' "$GENESIS" > "$TMPFILE" && mv "$TMPFILE" "$GENESIS"
 
 # Set governance params
