@@ -1,13 +1,17 @@
 package client
 
 import (
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"testing"
 
-	httplib "github.com/mocachain/moca-common/go/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	hashlib "github.com/mocachain/moca-common/go/hash"
+	httplib "github.com/mocachain/moca-common/go/http"
+	"github.com/mocachain/moca-go-sdk/types"
 )
 
 func TestSetRequestNonceIsUniquePerRequest(t *testing.T) {
@@ -31,14 +35,26 @@ func TestNonceJoinsTheSignedCanonicalRequest(t *testing.T) {
 	assert.NotEqual(t, baseline, signed)
 }
 
-func TestSetContentHashBindsReplayableBody(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodPost, "https://sp.example.com/x", strings.NewReader("payload"))
-	require.NoError(t, setContentHash(req))
-	sum := req.Header.Get(httplib.HTTPHeaderContentSHA256)
-	// sha256("payload")
-	assert.Equal(t, "239f59ed55e737c77147cf55ad0c1b030b6d7ee748a7426952f9b852d5a935e5", sum)
+func TestSignRequestSendsNonceOnlyWhenEnabled(t *testing.T) {
+	account, _, err := types.NewAccount("test")
+	require.NoError(t, err)
+	for _, enabled := range []bool{false, true} {
+		c := &Client{defaultAccount: account, sendAuthNonce: enabled}
+		req, err := http.NewRequest(http.MethodGet, "https://sp.example.com/x", nil)
+		require.NoError(t, err)
+		require.NoError(t, c.signRequest(req))
 
-	get, _ := http.NewRequest(http.MethodGet, "https://sp.example.com/x", nil)
-	require.NoError(t, setContentHash(get))
-	assert.Empty(t, get.Header.Get(httplib.HTTPHeaderContentSHA256))
+		nonce := req.Header.Get(httplib.HTTPHeaderNonce)
+		if !enabled {
+			assert.Empty(t, nonce)
+			continue
+		}
+		assert.Len(t, nonce, 32)
+		// recover the signer from the canonical request the way the SP does
+		sig, err := hex.DecodeString(strings.TrimPrefix(req.Header.Get(types.HTTPHeaderAuthorization), httplib.Gnfd1Ecdsa+", Signature="))
+		require.NoError(t, err)
+		signer, _, err := hashlib.RecoverAddr(httplib.GetMsgToSignInGNFD1Auth(req), sig)
+		require.NoError(t, err)
+		assert.Equal(t, account.GetAddress(), signer)
+	}
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
 	"errors"
@@ -80,6 +79,7 @@ type Client struct {
 	offChainAuthOption   *OffChainAuthOption
 	offChainAuthOptionV2 *OffChainAuthOptionV2
 	expireSeconds        uint64
+	sendAuthNonce        bool
 	// forceToUseSpecifiedSpEndpointForDownloadOnly indicates a fixed SP endpoint to which to send the download request
 	// If this option is set, the client can only make download requests, and can only download from the fixed endpoint
 	forceToUseSpecifiedSpEndpointForDownloadOnly *url.URL
@@ -113,6 +113,9 @@ type Option struct {
 	OffChainAuthOptionV2 *OffChainAuthOptionV2
 	// ExpireSeconds indicates the number of seconds after which the authentication of the request sent to the SP will become invalid，the default value is 1000.
 	ExpireSeconds uint64
+	// SendAuthNonce adds a random X-Gnfd-Nonce header to every signed request sent to the SP. An SP without nonce
+	// support fails to verify such a request, so set it only when every SP the client talks to supports the header.
+	SendAuthNonce bool
 	// ForceToUseSpecifiedSpEndpointForDownloadOnly indicates a fixed SP endpoint to which to send the download request
 	// If this option is set, the client can only make download requests, and can only download from the fixed endpoint
 	ForceToUseSpecifiedSpEndpointForDownloadOnly string
@@ -206,6 +209,7 @@ func New(chainID string, endpoint, evmEndpoint, privateKey string, option Option
 		host:             option.Host,
 		storageProviders: make(map[uint32]*types.StorageProvider),
 		expireSeconds:    option.ExpireSeconds,
+		sendAuthNonce:    option.SendAuthNonce,
 		evmClient:        evmClient,
 		evmChainID:       evmChainID,
 	}
@@ -695,34 +699,12 @@ func setRequestNonce(req *http.Request) error {
 	return nil
 }
 
-// setContentHash binds a replayable request body into the signed canonical
-// request; streamed bodies stay bound by the payload checksums sealed on chain.
-func setContentHash(req *http.Request) error {
-	if req.Body == nil || req.GetBody == nil || req.Header.Get(httplib.HTTPHeaderContentSHA256) != "" {
-		return nil
-	}
-	body, err := req.GetBody()
-	if err != nil {
-		return err
-	}
-	defer body.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, body); err != nil {
-		return err
-	}
-	req.Header.Set(httplib.HTTPHeaderContentSHA256, hex.EncodeToString(h.Sum(nil)))
-	return nil
-}
-
 // signRequest signs the request and set authorization before send to server
 func (c *Client) signRequest(req *http.Request) error {
-	// a fresh nonce makes every signed request unique so servers can enforce
-	// single use; older servers that do not know the header ignore it
-	if err := setRequestNonce(req); err != nil {
-		return err
-	}
-	if err := setContentHash(req); err != nil {
-		return err
+	if c.sendAuthNonce {
+		if err := setRequestNonce(req); err != nil {
+			return err
+		}
 	}
 	// use offChainAuth if OffChainAuthOption is set
 	if c.offChainAuthOption != nil {
