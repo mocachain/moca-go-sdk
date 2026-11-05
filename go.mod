@@ -1,23 +1,23 @@
 module github.com/mocachain/moca-go-sdk
 
-go 1.25.8
+go 1.26.10
 
 require (
 	cosmossdk.io/errors v1.1.0
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/x/feegrant v0.2.0
 	github.com/0xPolygon/polygon-edge v1.3.3
-	github.com/cometbft/cometbft v0.38.21
+	github.com/cometbft/cometbft v0.38.23
 	github.com/consensys/gnark-crypto v0.18.1
 	github.com/cosmos/cosmos-sdk v0.53.7
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/ethereum/go-ethereum v1.15.11
-	github.com/mocachain/moca-common/go v1.2.0-rc1
-	github.com/mocachain/moca/v2 v2.0.0-rc0
+	github.com/mocachain/moca-common/go v1.3.0-rc1
+	github.com/mocachain/moca/v2 v2.0.0-rc1
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/crypto v0.53.0
-	google.golang.org/grpc v1.81.1
+	golang.org/x/crypto v0.57.0
+	google.golang.org/grpc v1.84.0
 )
 
 require github.com/bits-and-blooms/bitset v1.24.6 // indirect
@@ -62,7 +62,7 @@ require (
 	github.com/cosmos/cosmos-db v1.1.3 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5 // indirect
 	github.com/cosmos/cosmos-sdk/x/oracle/types v0.0.0
-	github.com/cosmos/evm v0.6.0 // indirect
+	github.com/cosmos/evm v0.6.3 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.2.8 // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/getsentry/sentry-go v0.46.0 // indirect
@@ -133,12 +133,12 @@ require (
 	github.com/klauspost/reedsolomon v1.11.8 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lib/pq v1.10.9 // indirect
+	github.com/lib/pq v1.12.0 // indirect
 	github.com/linxGnu/grocksdb v1.9.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/minio/highwayhash v1.0.3 // indirect
+	github.com/minio/highwayhash v1.0.4 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
@@ -147,7 +147,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
+	github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
@@ -159,7 +159,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/sasha-s/go-deadlock v0.3.5 // indirect
+	github.com/sasha-s/go-deadlock v0.3.9 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
@@ -175,7 +175,7 @@ require (
 	github.com/tidwall/btree v1.8.1 // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
@@ -197,15 +197,15 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/term v0.44.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
-	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
@@ -215,27 +215,32 @@ require (
 )
 
 replace (
-	// Use local moca-cosmos-sdk for cosmos-sdk v0.50 compatibility
-	cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v1.4.0-rc0
-	cosmossdk.io/client/v2 => github.com/mocachain/moca-cosmos-sdk/client/v2 v2.4.0-rc0
-	cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v1.4.0-rc0
-	cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v1.4.0-rc0
-	cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.4.0-rc0
-	cosmossdk.io/x/nft => github.com/mocachain/moca-cosmos-sdk/x/nft v1.4.0-rc0
-	cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.4.0-rc0
-	github.com/0xPolygon/polygon-edge => github.com/mocachain/polygon-edge v1.3.3-moca.1
+	// Replace directives are not inherited from dependencies, so these mirror the
+	// ones in moca's go.mod (v2.0.0-rc1) for the modules in this module's graph.
+	cosmossdk.io/api => github.com/mocachain/moca-cosmos-sdk/api v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/client/v2 => github.com/mocachain/moca-cosmos-sdk/client/v2 v2.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/math => github.com/mocachain/moca-cosmos-sdk/math v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/simapp => github.com/mocachain/moca-cosmos-sdk/simapp v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/store => github.com/mocachain/moca-cosmos-sdk/store v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/x/feegrant => github.com/mocachain/moca-cosmos-sdk/x/feegrant v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/x/nft => github.com/mocachain/moca-cosmos-sdk/x/nft v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	cosmossdk.io/x/tx => github.com/mocachain/moca-cosmos-sdk/x/tx v1.4.0-rc0.0.20261029124406-176ec71f8cf4
+	github.com/0xPolygon/polygon-edge v1.3.3 => github.com/mocachain/polygon-edge v1.3.3-moca.1
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
-	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.2.0-rc1
-	github.com/confio/ics23/go => github.com/cosmos/cosmos-sdk/ics23/go v0.8.0
-	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.4.0-rc0
+	github.com/btcsuite/btcd/btcec/v2 => github.com/btcsuite/btcd/btcec/v2 v2.3.4
+	github.com/cometbft/cometbft => github.com/mocachain/moca-cometbft v1.3.0-rc1
+	github.com/confio/ics23/go => github.com/cosmos/ics23/go v0.10.0
+	github.com/cosmos/cosmos-sdk => github.com/mocachain/moca-cosmos-sdk v1.4.0-rc1
+	github.com/cosmos/evm => github.com/mocachain/cosmos-evm v0.6.3-moca.0
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v1.16.2-cosmos-1
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/mocachain/moca-common/go => github.com/mocachain/moca-common/go v1.3.0-rc0.0.20261104095442-623b90996868
+	github.com/lyft/protoc-gen-validate => github.com/bufbuild/protoc-gen-validate v0.0.13
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/wercker/journalhook => github.com/wercker/journalhook v0.0.0-20230927020745-64542ffa4117
+	nhooyr.io/websocket => nhooyr.io/websocket v1.8.17
 )
 
-replace cosmossdk.io/x/circuit => github.com/mocachain/moca-cosmos-sdk/x/circuit v1.4.0-rc0
+replace cosmossdk.io/x/circuit => github.com/mocachain/moca-cosmos-sdk/x/circuit v1.4.0-rc0.0.20261029124406-176ec71f8cf4
 
 replace github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 
