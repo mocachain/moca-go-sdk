@@ -14,7 +14,7 @@ Rich SDKs is provided to operate moca resources or query status of resources.
 
 ### Requirement
 
-Go 1.26.10 or later
+Go 1.26.11 or later
 
 ## Getting started
 
